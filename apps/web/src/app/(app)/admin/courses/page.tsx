@@ -40,6 +40,14 @@ export default function AdminCoursesPage() {
     load();
   }
 
+  async function removeCourse(c: any) {
+    if (!confirm(`Excluir "${c.title}"? Isso apaga módulos, aulas e matrículas do curso — não pode ser desfeito.`)) return;
+    try {
+      await api(`/courses/${c.id}`, { method: 'DELETE' });
+      setMsg('Curso excluído.'); load();
+    } catch (err) { setMsg((err as Error).message); }
+  }
+
   return (
     <div className="mx-auto max-w-5xl">
       <h1 className="mb-1 text-2xl font-bold text-ink">Admin · Cursos</h1>
@@ -92,6 +100,8 @@ export default function AdminCoursesPage() {
                   className="rounded-lg bg-surface2 px-3 py-1.5 text-xs text-muted">Estruturar</button>
                 <button onClick={() => togglePublish(c)}
                   className="rounded-lg bg-brand px-3 py-1.5 text-xs text-white">{c.status === 'PUBLISHED' ? 'Despublicar' : 'Publicar'}</button>
+                <button onClick={() => removeCourse(c)}
+                  className="rounded-lg bg-surface2 px-3 py-1.5 text-xs text-danger">Excluir</button>
               </div>
             </div>
             {expanded === c.id && <CourseStructure courseId={c.id} exams={exams} competencyCatalog={competencyCatalog} onChange={load} />}
