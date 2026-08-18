@@ -53,3 +53,15 @@
 .app-sidebar .nav-link .material-symbols-outlined {
   flex-shrink: 0;
 }
+
+/* Esconde a barra de rolagem da lista de itens (mantém a rolagem funcional). */
+.app-sidebar .overflow-y-auto {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.app-sidebar .overflow-y-auto::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
