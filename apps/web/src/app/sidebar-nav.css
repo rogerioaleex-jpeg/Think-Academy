@@ -1,0 +1,55 @@
+/* Menu lateral (Think IT Cyber Academy)
+   - Corrige o contraste dos itens do menu: antes o texto inativo usava
+     "text-on-surface-variant" (#3f4948, cinza bem escuro) sobre o fundo
+     escuro do menu (#21242b) — quase ilegível. Agora usa um cinza claro.
+   - Torna o menu retrátil: fica recolhido (só ícones) e expande ao passar
+     o mouse (ou ao ganhar foco via teclado), sem empurrar o conteúdo. */
+
+.app-sidebar {
+  width: 96px;
+  overflow: hidden;
+  transition: width .22s ease, box-shadow .22s ease;
+}
+
+.app-sidebar:hover,
+.app-sidebar:focus-within {
+  width: 288px;
+  box-shadow: 16px 0 40px rgba(0, 0, 0, .45);
+}
+
+.app-sidebar .brand-text,
+.app-sidebar .nav-label,
+.app-sidebar .start-lab-label {
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity .15s ease;
+}
+
+.app-sidebar:hover .brand-text,
+.app-sidebar:hover .nav-label,
+.app-sidebar:hover .start-lab-label,
+.app-sidebar:focus-within .brand-text,
+.app-sidebar:focus-within .nav-label,
+.app-sidebar:focus-within .start-lab-label {
+  opacity: 1;
+  transition-delay: .08s;
+}
+
+.app-sidebar .nav-link {
+  color: #d7dce1;
+}
+
+.app-sidebar .nav-link:hover,
+.app-sidebar .nav-link:focus-visible {
+  color: #ffffff;
+  background-color: rgba(39, 116, 113, .38);
+}
+
+.app-sidebar .nav-link.active {
+  color: #ffffff;
+  background-color: #277471;
+}
+
+.app-sidebar .nav-link .material-symbols-outlined {
+  flex-shrink: 0;
+}

@@ -622,19 +622,18 @@ const NAV=[["dashboard","dashboard","Dashboard"],["courses","school","Cursos & T
 const ROUTE={"dashboard":"/dashboard","courses":"/courses","course-detail":"/courses/detail","labs":"/labs","lab-console":"/labs/console","sim":"/sim","exams":"/exams","exam-run":"/exams/run","leaderboard":"/leaderboard","achievements":"/achievements","passport":"/passport","certificates":"/certificates","notif":"/notifications","forum":"/forum","manager":"/manager","manager-profile":"/manager/profile","talent":"/talent","talent-report":"/talent/report","assign":"/assign","admin":"/admin"};
 function buildSidebar(active){
   const link=(id,ic,label)=>{const on=id===active;
-    const cls=on?'flex items-center gap-3 px-4 py-3 bg-cyber-teal text-on-primary rounded-lg border-l-4 border-electric-lime transition-all duration-300'
-                :'flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-primary hover:bg-cyber-teal/20 transition-all duration-300 hover:translate-x-1 rounded-lg';
-    return '<a class="'+cls+'" href="#" onclick="go(\''+id+'\');return false;"><span class="material-symbols-outlined">'+ic+'</span><span class="text-label-md font-label-md">'+label+'</span></a>';};
+    const cls=(on?'nav-link active ':'nav-link ')+'flex items-center gap-3 px-4 py-3 rounded-lg border-l-4 '+(on?'border-electric-lime':'border-transparent')+' transition-all duration-300 hover:translate-x-1';
+    return '<a class="'+cls+'" href="#" onclick="go(\''+id+'\');return false;"><span class="material-symbols-outlined shrink-0">'+ic+'</span><span class="nav-label text-label-md font-label-md">'+label+'</span></a>';};
   const items=NAV.map(n=>link(n[0],n[1],n[2])).join('');
-  return '<nav class="hidden md:flex flex-col h-full py-base gap-2 bg-surface-dark shadow-2xl border-r border-outline-variant/10 fixed left-0 top-0 w-[280px] z-50">'
+  return '<nav class="app-sidebar hidden md:flex flex-col h-full py-base gap-2 bg-surface-dark shadow-2xl border-r border-outline-variant/10 fixed left-0 top-0 z-50">'
     +'<div class="px-6 py-6 mb-4"><div class="flex items-center gap-3">'
-    +'<svg width="34" height="34" viewBox="0 0 24 24" fill="none"><g stroke="#C8D541" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v18M3 12h18M5.5 5.5l13 13M18.5 5.5l-13 13"/></g></svg>'
-    +'<div><h1 class="text-headline-md font-headline-md font-bold text-electric-lime leading-none">Cyber Academy</h1><p class="text-label-sm font-label-sm text-cyber-teal mt-1">Think IT · Elite Operator</p></div></div></div>'
-    +'<div class="px-6 mb-6"><button onclick="go(\'labs\')" class="w-full bg-electric-lime text-on-surface font-label-md text-label-md py-3 rounded-lg hover:bg-secondary-container transition-colors shadow-[0_4px_12px_rgba(200,213,65,0.2)] flex items-center justify-center gap-2"><span class="material-symbols-outlined" style="font-variation-settings:\'FILL\' 1;">terminal</span>Start Lab</button></div>'
+    +'<svg width="34" height="34" viewBox="0 0 24 24" fill="none" class="shrink-0"><g stroke="#C8D541" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v18M3 12h18M5.5 5.5l13 13M18.5 5.5l-13 13"/></g></svg>'
+    +'<div class="brand-text"><h1 class="text-headline-md font-headline-md font-bold text-electric-lime leading-none">Cyber Academy</h1><p class="text-label-sm font-label-sm text-cyber-teal mt-1">Think IT · Elite Operator</p></div></div></div>'
+    +'<div class="px-6 mb-6"><button onclick="go(\'labs\')" class="w-full bg-electric-lime text-on-surface font-label-md text-label-md py-3 rounded-lg hover:bg-secondary-container transition-colors shadow-[0_4px_12px_rgba(200,213,65,0.2)] flex items-center justify-center gap-2"><span class="material-symbols-outlined shrink-0" style="font-variation-settings:\'FILL\' 1;">terminal</span><span class="start-lab-label">Start Lab</span></button></div>'
     +'<div class="flex-1 overflow-y-auto px-4 flex flex-col gap-1">'+items+'</div>'
     +'<div class="mt-auto px-4 pt-4 pb-6 border-t border-outline-variant/10 flex flex-col gap-1">'
     +link('admin','settings','Administração')
-    +'<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:text-on-primary hover:bg-cyber-teal/20 rounded-lg" href="#" onclick="if(window.__logout)window.__logout();return false;"><span class="material-symbols-outlined">logout</span><span class="text-label-md font-label-md">Sair</span></a>'
+    +'<a class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg" href="#" onclick="if(window.__logout)window.__logout();return false;"><span class="material-symbols-outlined shrink-0">logout</span><span class="nav-label text-label-md font-label-md">Sair</span></a>'
     +'</div></nav>';
 }
 function renderView(id){

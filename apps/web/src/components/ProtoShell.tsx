@@ -22,7 +22,7 @@ export function ProtoShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app flex h-screen overflow-hidden bg-surface-background font-body-md text-on-surface antialiased">
       <div dangerouslySetInnerHTML={{ __html: buildSidebar(active) }} />
-      <div className="flex-1 md:ml-[280px] h-full overflow-y-auto bg-surface-background relative">
+      <div className="flex-1 md:ml-[96px] h-full overflow-y-auto bg-surface-background relative">
         {children}
       </div>
     </div>
