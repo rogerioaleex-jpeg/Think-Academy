@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsInt, IsOptional, IsString, ValidateNested, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsInt, IsOptional, IsString, ValidateNested, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Difficulty, ExamKind, QuestionType } from '@tica/database';
 
 export class OptionInputDto {
   @ApiProperty() @IsString() text!: string;
-  @ApiProperty() isCorrect!: boolean;
+  @ApiProperty() @IsBoolean() isCorrect!: boolean;
 }
 
 export class CreateQuestionDto {
