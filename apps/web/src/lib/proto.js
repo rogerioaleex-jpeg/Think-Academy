@@ -403,9 +403,9 @@ V.admin=()=>`
   ${header('Administração','Painel administrativo','Gestão de conteúdo, avaliações e ambientes.')}
   <div class="ck">Telas prontas</div>
   <div class="grid g3" style="margin-bottom:24px">
-    ${adm('Cursos','Criar, publicar e estruturar cursos/módulos/aulas + vídeos')}
-    ${adm('Banco de questões','Criar questões, importar CSV e alimentar provas')}
-    ${adm('Cyber Labs','Criar labs isolados, desafios e hints')}
+    ${adm('Cursos','Criar, publicar e estruturar cursos/módulos/aulas + vídeos','/admin/courses')}
+    ${adm('Banco de questões','Criar questões, importar CSV e alimentar provas','/admin/questions')}
+    ${adm('Cyber Labs','Criar labs isolados, desafios e hints','/admin/labs')}
   </div>
   <div class="ck">Endpoints prontos (telas nas próximas fases)</div>
   <div class="grid g3">
@@ -414,7 +414,14 @@ V.admin=()=>`
 
 function sel(l,v){return `<label style="flex:1;font-size:12px;color:var(--gray)">${l}<div style="margin-top:4px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--ink);font-size:13px">${v} ▾</div></label>`;}
 function inp(l,v){return `<label style="flex:1;font-size:12px;color:var(--gray)">${l}<div style="margin-top:4px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--ink);font-size:13px">${v}</div></label>`;}
-function adm(t,d){return `<div class="card clickable"><b>${t}</b><p class="tag" style="margin:8px 0 12px">${d}</p><span style="color:var(--teal);font-size:12px;font-weight:600">Abrir →</span></div>`;}
+/* Card do painel admin. Com `href`, navega para a tela real (Next.js) ao clicar;
+   sem `href`, fica só informativo (endpoint ainda sem tela própria). */
+function adm(t,d,href){
+  const action=href?`onclick="location.href='${href}'"`:'';
+  const tag=href?'Abrir →':'Em breve';
+  const tagColor=href?'var(--teal)':'var(--muted)';
+  return `<div class="card${href?' clickable':''}" ${action}><b>${t}</b><p class="tag" style="margin:8px 0 12px">${d}</p><span style="color:${tagColor};font-size:12px;font-weight:600">${tag}</span></div>`;
+}
 
 /* ---- SOC Simulator ---- */
 const sevColor={Alta:'var(--red)',Média:'var(--orange)',Baixa:'var(--teal2)'};
