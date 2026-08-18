@@ -79,6 +79,12 @@ export class CoursesController {
     return this.courses.enroll(user.id, id);
   }
 
+  @Get(':id/my-progress')
+  @ApiOperation({ summary: 'Matrícula e progresso do aluno autenticado nas aulas do curso.' })
+  myProgress(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.courses.myProgress(user.id, id);
+  }
+
   @Roles(RoleName.SUPER_ADMIN, RoleName.ADMIN, RoleName.MANAGER)
   @Post(':id/bulk-assign')
   @ApiOperation({ summary: 'Atribuição em massa: matricula vários usuários no curso.' })

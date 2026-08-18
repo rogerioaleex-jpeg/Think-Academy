@@ -94,6 +94,23 @@ export class CoursesService {
     });
   }
 
+  /** Matrícula + progresso por aula do aluno autenticado, para a tela de curso. */
+  async myProgress(userId: string, courseId: string) {
+    const [enrollment, lessons] = await Promise.all([
+      this.prisma.enrollment.findUnique({ where: { userId_courseId: { userId, courseId } } }),
+      this.prisma.lessonProgress.findMany({
+        where: { userId, lesson: { module: { courseId } } },
+        select: { lessonId: true, completed: true, watchedPct: true, resumePositionSec: true },
+      }),
+    ]);
+    return {
+      enrolled: !!enrollment,
+      progressPct: enrollment?.progressPct ?? 0,
+      status: enrollment?.status ?? null,
+      lessons,
+    };
+  }
+
   /** Atribuição em massa: matricula vários usuários em um curso de uma vez. */
   async bulkAssign(courseId: string, userIds: string[]) {
     await this.get(courseId);

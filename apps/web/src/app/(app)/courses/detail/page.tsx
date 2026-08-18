@@ -1,3 +1,7 @@
-'use client';
-import ProtoView from '@/components/ProtoView';
-export default function Page() { return <ProtoView id="course-detail" />; }
+import { redirect } from 'next/navigation';
+
+// Rota antiga do protótipo (sem id de curso, não faz mais sentido — a tela
+// real de curso agora é /courses/[id]).
+export default function Page() {
+  redirect('/courses');
+}

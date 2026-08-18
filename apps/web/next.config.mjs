@@ -19,6 +19,10 @@ const csp = [
   `font-src 'self' https://fonts.gstatic.com data:`,
   `img-src 'self' data: blob:`,
   `connect-src 'self' ${apiOrigin}${isDev ? ' ws: wss:' : ''}`,
+  // Player de vídeo de aula: embed do YouTube/Vimeo (link externo colado no
+  // admin) e <video> apontando pra um arquivo direto em qualquer host https.
+  `frame-src 'self' https://www.youtube.com https://player.vimeo.com`,
+  `media-src 'self' https:`,
   `upgrade-insecure-requests`,
 ]
   .filter(Boolean)
