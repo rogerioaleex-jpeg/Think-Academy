@@ -1,0 +1,1028 @@
+// =============================================================================
+// THINK IT CYBER ACADEMY — Prisma schema
+// PostgreSQL. Modelo de dados completo (MVP + fases futuras).
+// Cobre: RBAC, LMS (cursos/módulos/aulas/vídeos/materiais), trilhas,
+// provas/questões, gamificação (XP/badges/ranking), competências,
+// laboratórios isolados, certificados, notificações e auditoria.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================ ENUMS =========================================
+
+/// Papéis do RBAC. Um usuário pode ter vários papéis (UserRole n:n).
+enum RoleName {
+  SUPER_ADMIN
+  ADMIN
+  INSTRUCTOR
+  MENTOR
+  MANAGER
+  ANALYST
+  STUDENT
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+/// Tipo de aula — define qual "renderer" o front usa.
+enum LessonType {
+  VIDEO
+  TEXT
+  MATERIAL
+  QUIZ
+  LAB
+  CHALLENGE
+}
+
+enum MaterialType {
+  PDF
+  PPTX
+  DOCX
+  LINK
+  CHEATSHEET
+  PLAYBOOK
+  FRAMEWORK
+  ARTICLE
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+}
+
+enum ExamKind {
+  QUIZ // quiz curto de módulo
+  EXAM // prova formal
+  SIMULATION // simulado de certificação (AZ-900, SC-900, Security+)
+  CHALLENGE // CTF / desafio
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+  EXPIRED
+  ABANDONED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  CANCELLED
+}
+
+enum LabCategory {
+  SOC
+  NETWORK
+  WINDOWS
+  LINUX
+  CLOUD
+  DFIR
+  THREAT_INTEL
+  DETECTION_ENGINEERING
+  WEB
+  CTF
+}
+
+/// Estado do runtime de uma instância de laboratório.
+enum LabInstanceStatus {
+  PROVISIONING
+  RUNNING
+  STOPPING
+  STOPPED
+  EXPIRED
+  FAILED
+  DESTROYED
+}
+
+/// Backend de orquestração usado para provisionar o lab.
+enum LabDriver {
+  DOCKER
+  KUBERNETES
+  VM
+}
+
+enum XpSource {
+  LESSON
+  QUIZ
+  LAB
+  CHALLENGE
+  EXAM
+  PATH_COMPLETION
+  BADGE
+  MANUAL_ADJUSTMENT
+}
+
+enum LeaderboardScope {
+  GLOBAL
+  MONTHLY
+  PATH
+  COMPETENCY
+}
+
+/// Nível de proficiência usado na matriz de competências.
+/// 0 Não iniciado · 1 Básico · 2 Intermediário · 3 Avançado · 4 Especialista
+enum CompetencyLevel {
+  NONE
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+/// Como o nível de competência foi evidenciado.
+enum CompetencyEvidence {
+  MANAGER_ASSESSMENT
+  EXAM
+  LAB
+  COURSE
+  CERTIFICATION
+}
+
+enum NotificationType {
+  NEW_COURSE
+  NEW_PATH
+  BADGE_EARNED
+  CERTIFICATE_ISSUED
+  EXAM_RESULT
+  LAB_READY
+  LAB_EXPIRING
+  DEADLINE
+  SYSTEM
+}
+
+// ============================ RBAC / USERS ==================================
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String?  // null quando o usuário vem só de SSO (Entra ID)
+  externalId    String?  @unique // subject do OIDC (Entra ID) — preparado para SSO
+  name          String
+  avatarUrl     String?
+  jobTitle      String?  // ex.: "SOC Analyst N1"
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  totalXp       Int      @default(0)
+  level         Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  roles            UserRole[]
+  enrollments      Enrollment[]
+  pathEnrollments  UserLearningPath[]
+  lessonProgress   LessonProgress[]
+  examAttempts     ExamAttempt[]
+  labInstances     LabInstance[]
+  labSubmissions   LabSubmission[]
+  xpTransactions   XpTransaction[]
+  userBadges       UserBadge[]
+  achievements     UserAchievement[]
+  certificates     Certificate[]
+  competencies     UserCompetency[] @relation("CompetencyOwner")
+  assessmentsGiven UserCompetency[] @relation("AssessedBy")
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  authoredCourses  Course[]         @relation("CourseInstructor")
+  refreshTokens    RefreshToken[]
+
+  @@index([totalXp])
+  @@map("users")
+}
+
+/// Refresh tokens (rotativos) para autenticação por cookie httpOnly.
+/// Guardamos apenas o HASH (sha256) do token — o valor em claro só existe
+/// no cookie do cliente. Rotação: a cada /auth/refresh o token antigo é
+/// revogado (revokedAt) e um novo é emitido. Logout revoga o token atual.
+model RefreshToken {
+  id         String    @id @default(uuid())
+  tokenHash  String    @unique
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  userAgent  String?
+  ip         String?
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Role {
+  id          String     @id @default(uuid())
+  name        RoleName   @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  key         String   @unique // ex.: "course:create", "lab:manage"
+  description String?
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// ============================ TAXONOMIA =====================================
+
+model Category {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  slug     String  @unique
+  icon     String?
+  courses  Course[]
+  labs     Lab[]
+  materials Material[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  slug        String       @unique
+  courseTags  CourseTag[]
+  labTags     LabTag[]
+
+  @@map("tags")
+}
+
+// ============================ LMS: CURSOS ===================================
+
+model Course {
+  id               String        @id @default(uuid())
+  title            String
+  slug             String        @unique
+  shortDescription String?
+  description      String?
+  thumbnailUrl     String?
+  difficulty       Difficulty    @default(EASY)
+  estimatedHours   Int           @default(0)
+  status           ContentStatus @default(DRAFT)
+  publishedAt      DateTime?
+  categoryId       String?
+  instructorId     String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  category   Category?     @relation(fields: [categoryId], references: [id])
+  instructor User?         @relation("CourseInstructor", fields: [instructorId], references: [id])
+  modules    Module[]
+  tags       CourseTag[]
+  enrollments Enrollment[]
+  pathCourses LearningPathCourse[]
+
+  @@index([status])
+  @@map("courses")
+}
+
+model CourseTag {
+  courseId String
+  tagId    String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, tagId])
+  @@map("course_tags")
+}
+
+model Module {
+  id          String   @id @default(uuid())
+  courseId    String
+  title       String
+  description String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@unique([courseId, order])
+  @@map("course_modules")
+}
+
+model Lesson {
+  id          String     @id @default(uuid())
+  moduleId    String
+  title       String
+  description String?
+  type        LessonType @default(VIDEO)
+  order       Int        @default(0)
+  // ponteiros opcionais para o conteúdo específico do tipo de aula
+  videoId     String?    @unique
+  examId      String?    // quiz vinculado
+  labId       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  module    Module          @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  video     Video?          @relation(fields: [videoId], references: [id])
+  exam      Exam?           @relation(fields: [examId], references: [id])
+  lab       Lab?            @relation(fields: [labId], references: [id])
+  materials Material[]
+  progress  LessonProgress[]
+
+  @@unique([moduleId, order])
+  @@map("lessons")
+}
+
+model Material {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  type        MaterialType
+  storageKey  String?      // chave no object storage (para PDFs/arquivos)
+  url         String?      // usado quando type=LINK
+  sizeBytes   Int?
+  mimeType    String?
+  categoryId  String?
+  lessonId    String?      // material pode pertencer a uma aula ou ser da biblioteca global
+  createdAt   DateTime     @default(now())
+
+  category Category? @relation(fields: [categoryId], references: [id])
+  lesson   Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  @@map("materials")
+}
+
+/// Metadados de vídeo. O binário fica no object storage; aqui só a referência.
+model Video {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  storageKey   String   // chave no bucket (nunca URL pública permanente)
+  thumbnailKey String?
+  durationSec  Int      @default(0)
+  sizeBytes    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  lesson Lesson?
+
+  @@map("videos")
+}
+
+model Enrollment {
+  id          String           @id @default(uuid())
+  userId      String
+  courseId    String
+  status      EnrollmentStatus @default(ACTIVE)
+  progressPct Int              @default(0)
+  enrolledAt  DateTime         @default(now())
+  completedAt DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("enrollments")
+}
+
+/// Progresso por aula, incluindo retomada de vídeo (resumePositionSec).
+model LessonProgress {
+  id               String   @id @default(uuid())
+  userId           String
+  lessonId         String
+  completed        Boolean  @default(false)
+  watchedPct       Int      @default(0)
+  resumePositionSec Int     @default(0)
+  startedAt        DateTime @default(now())
+  completedAt      DateTime?
+  updatedAt        DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@map("lesson_progress")
+}
+
+// ============================ TRILHAS =======================================
+
+model LearningPath {
+  id               String        @id @default(uuid())
+  title            String
+  slug             String        @unique
+  description      String?
+  thumbnailUrl     String?
+  difficulty       Difficulty    @default(EASY)
+  status           ContentStatus @default(DRAFT)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  courses     LearningPathCourse[]
+  enrollments UserLearningPath[]
+  certificates Certificate[]
+
+  @@map("learning_paths")
+}
+
+model LearningPathCourse {
+  learningPathId String
+  courseId       String
+  order          Int    @default(0)
+  required       Boolean @default(true)
+
+  learningPath LearningPath @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+  course       Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@id([learningPathId, courseId])
+  @@map("learning_path_courses")
+}
+
+model UserLearningPath {
+  id             String           @id @default(uuid())
+  userId         String
+  learningPathId String
+  status         EnrollmentStatus @default(ACTIVE)
+  progressPct    Int              @default(0)
+  enrolledAt     DateTime         @default(now())
+  completedAt    DateTime?
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningPath LearningPath @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, learningPathId])
+  @@map("user_learning_paths")
+}
+
+// ============================ PROVAS / QUESTÕES =============================
+
+model Question {
+  id          String       @id @default(uuid())
+  prompt      String
+  explanation String?
+  type        QuestionType @default(SINGLE_CHOICE)
+  difficulty  Difficulty   @default(MEDIUM)
+  category    String?      // ex.: "AZ-900", "SC-900", "Security+", "SOC"
+  technology  String?
+  reference   String?
+  points      Int          @default(1)
+  createdAt   DateTime     @default(now())
+
+  options       QuestionOption[]
+  examQuestions ExamQuestion[]
+  answers       ExamAnswer[]
+
+  @@index([category])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id         String  @id @default(uuid())
+  questionId String
+  text       String
+  isCorrect  Boolean @default(false)
+  order      Int     @default(0)
+
+  question Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  ExamAnswer[]
+
+  @@map("question_options")
+}
+
+model Exam {
+  id             String     @id @default(uuid())
+  title          String
+  description    String?
+  kind           ExamKind   @default(EXAM)
+  category        String?   // trilha de certificação relacionada
+  difficulty     Difficulty @default(MEDIUM)
+  questionCount  Int        @default(0) // quantas questões sortear por tentativa
+  durationMin    Int        @default(0)
+  passScorePct   Int        @default(70)
+  maxAttempts    Int        @default(0) // 0 = ilimitado
+  randomize      Boolean    @default(true)
+  shuffleOptions Boolean    @default(true)
+  status         ContentStatus @default(DRAFT)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  questions ExamQuestion[]
+  attempts  ExamAttempt[]
+  lessons   Lesson[]
+
+  @@map("exams")
+}
+
+model ExamQuestion {
+  examId     String
+  questionId String
+  order      Int    @default(0)
+
+  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([examId, questionId])
+  @@map("exam_questions")
+}
+
+model ExamAttempt {
+  id          String        @id @default(uuid())
+  examId      String
+  userId      String
+  status      AttemptStatus @default(IN_PROGRESS)
+  scorePct    Int?
+  passed      Boolean?
+  startedAt   DateTime      @default(now())
+  submittedAt DateTime?
+  expiresAt   DateTime?
+
+  exam    Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers ExamAnswer[]
+
+  @@index([userId, examId])
+  @@map("exam_attempts")
+}
+
+model ExamAnswer {
+  id               String  @id @default(uuid())
+  attemptId        String
+  questionId       String
+  selectedOptionId String?
+  isCorrect        Boolean @default(false)
+
+  attempt        ExamAttempt     @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question       Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOption QuestionOption? @relation(fields: [selectedOptionId], references: [id])
+
+  @@map("exam_answers")
+}
+
+// ============================ LABORATÓRIOS ==================================
+
+model Lab {
+  id            String      @id @default(uuid())
+  title         String
+  slug          String      @unique
+  description   String?
+  objective     String?
+  category      LabCategory
+  difficulty    Difficulty  @default(MEDIUM)
+  durationMin   Int         @default(30)
+  xpReward      Int         @default(100)
+  driver        LabDriver   @default(DOCKER)
+  dockerImage   String?     // imagem base do ambiente (deliberadamente controlado)
+  cpuLimit      String      @default("1")     // ex.: "1", "0.5"
+  memoryLimitMb Int         @default(1024)
+  timeoutMin    Int         @default(60)      // destruição automática
+  exposedPorts  Int[]       @default([])
+  status        ContentStatus @default(DRAFT)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  categoryId String?
+  categoryRef Category?      @relation(fields: [categoryId], references: [id])
+  tags       LabTag[]
+  challenges LabChallenge[]
+  hints      LabHint[]
+  instances  LabInstance[]
+  lessons    Lesson[]
+
+  @@map("labs")
+}
+
+model LabTag {
+  labId String
+  tagId String
+  lab   Lab @relation(fields: [labId], references: [id], onDelete: Cascade)
+  tag   Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([labId, tagId])
+  @@map("lab_tags")
+}
+
+/// Objetivo verificável dentro de um lab (ex.: "identificar o usuário").
+model LabChallenge {
+  id          String     @id @default(uuid())
+  labId       String
+  title       String
+  description String?
+  points      Int        @default(50)
+  // flag/answer NUNCA é exposta ao aluno; validação server-side.
+  flagHash    String?    // hash da flag/answer esperada
+  order       Int        @default(0)
+
+  lab         Lab             @relation(fields: [labId], references: [id], onDelete: Cascade)
+  submissions LabSubmission[]
+
+  @@map("lab_challenges")
+}
+
+model LabHint {
+  id        String  @id @default(uuid())
+  labId     String
+  text      String
+  order     Int     @default(0)
+  costXp    Int     @default(0) // custo em XP para revelar o hint
+
+  lab Lab @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  @@map("lab_hints")
+}
+
+/// Ambiente efêmero provisionado para um usuário. Isolado da rede corporativa.
+model LabInstance {
+  id           String            @id @default(uuid())
+  labId        String
+  userId       String
+  status       LabInstanceStatus @default(PROVISIONING)
+  driver       LabDriver         @default(DOCKER)
+  externalRef  String?           // id do container / pod / vm
+  accessUrl    String?           // URL de acesso ao ambiente (via gateway)
+  networkId    String?           // rede isolada dedicada
+  startedAt    DateTime          @default(now())
+  expiresAt    DateTime?
+  stoppedAt    DateTime?
+
+  lab         Lab             @relation(fields: [labId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submissions LabSubmission[]
+
+  @@index([userId, status])
+  @@map("lab_instances")
+}
+
+model LabSubmission {
+  id          String   @id @default(uuid())
+  instanceId  String
+  challengeId String
+  userId      String
+  answer      String
+  correct     Boolean  @default(false)
+  submittedAt DateTime @default(now())
+
+  instance  LabInstance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  challenge LabChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("lab_submissions")
+}
+
+// ============================ GAMIFICAÇÃO ===================================
+
+model XpTransaction {
+  id         String   @id @default(uuid())
+  userId     String
+  amount     Int
+  source     XpSource
+  refId      String?  // id da entidade que originou o XP
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Evita farming: uma mesma fonte+ref só pontua uma vez.
+  @@unique([userId, source, refId])
+  @@index([userId])
+  @@map("xp_transactions")
+}
+
+model Badge {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  xpReward    Int      @default(0)
+  criteria    String?  // regra legível de conquista
+  createdAt   DateTime @default(now())
+
+  users UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, badgeId])
+  @@map("user_badges")
+}
+
+model Achievement {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+
+  users UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  userId        String
+  achievementId String
+  earnedAt      DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@id([userId, achievementId])
+  @@map("user_achievements")
+}
+
+/// Snapshot de ranking (recalculado por job). scope + period identificam o board.
+model LeaderboardEntry {
+  id       String           @id @default(uuid())
+  scope    LeaderboardScope
+  period   String           // ex.: "2026-08" (mensal), "GLOBAL", pathId, competencyKey
+  userId   String
+  xp       Int
+  rank     Int
+  updatedAt DateTime        @default(now())
+
+  @@unique([scope, period, userId])
+  @@index([scope, period, rank])
+  @@map("leaderboard_entries")
+}
+
+// ============================ COMPETÊNCIAS ==================================
+
+model Competency {
+  id          String @id @default(uuid())
+  key         String @unique // ex.: "SIEM", "KQL", "NETWORKING"
+  name        String
+  description String?
+
+  users UserCompetency[]
+
+  @@map("competencies")
+}
+
+/// Nível de um usuário numa competência, com evidência e avaliador.
+model UserCompetency {
+  id           String             @id @default(uuid())
+  userId       String
+  competencyId String
+  level        CompetencyLevel    @default(NONE)
+  scorePct     Int?               // proficiência 0-100 (para o radar)
+  evidence     CompetencyEvidence @default(MANAGER_ASSESSMENT)
+  evidenceRef  String?
+  assessedById String?
+  assessedAt   DateTime           @default(now())
+
+  user       User       @relation("CompetencyOwner", fields: [userId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  assessedBy User?      @relation("AssessedBy", fields: [assessedById], references: [id])
+
+  @@unique([userId, competencyId])
+  @@map("user_competencies")
+}
+
+// ============================ CERTIFICADOS ==================================
+
+model Certificate {
+  id             String   @id @default(uuid())
+  publicId       String   @unique // ex.: "TICA-SOCN1-2026-0001" — usado na validação
+  userId         String
+  learningPathId String?
+  title          String
+  hours          Int      @default(0)
+  issuedAt       DateTime @default(now())
+  revoked        Boolean  @default(false)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningPath LearningPath? @relation(fields: [learningPathId], references: [id])
+
+  @@map("certificates")
+}
+
+// ============================ NOTIFICAÇÕES / AUDITORIA ======================
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String   // ex.: "course.publish"
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// FÓRUM TÉCNICO (Ops) — discussão da comunidade SOC
+// Referências a usuário são escalares (denormalizadas) para simplicidade.
+// ============================================================================
+
+model ForumThread {
+  id         String   @id @default(uuid())
+  title      String
+  body       String
+  category   String?  // ex.: "SOC", "Cloud", "DFIR"
+  tags       String[] @default([])
+  authorId   String
+  authorName String
+  pinned     Boolean  @default(false)
+  votes      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  posts ForumPost[]
+
+  @@index([category])
+  @@map("forum_threads")
+}
+
+model ForumPost {
+  id         String   @id @default(uuid())
+  threadId   String
+  authorId   String
+  authorName String
+  body       String
+  votes      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  thread ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@map("forum_posts")
+}
+
+// ============================================================================
+// SOC SIMULATOR — incidentes simulados + tentativas com scoring do analista
+// ============================================================================
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  NEW
+  INVESTIGATING
+  ESCALATED
+  CLOSED
+}
+
+enum IncidentVerdict {
+  TRUE_POSITIVE
+  FALSE_POSITIVE
+}
+
+model Incident {
+  id                String           @id @default(uuid())
+  publicId          String           @unique // ex.: 2026-000184
+  title             String
+  severity          IncidentSeverity
+  source            String
+  asset             String
+  alertTime         String
+  briefing          String?
+  signins           Json?            // eventos sintéticos p/ investigação
+  // Gabarito — NUNCA exposto ao aluno antes do envio.
+  correctSeverity   IncidentSeverity
+  correctTechnique  String           // técnica MITRE (ex.: T1078)
+  correctVerdict    IncidentVerdict
+  recommendedAction String
+  status            ContentStatus    @default(PUBLISHED)
+  createdAt         DateTime         @default(now())
+
+  attempts IncidentAttempt[]
+
+  @@map("incidents")
+}
+
+model IncidentAttempt {
+  id             String            @id @default(uuid())
+  incidentId     String
+  userId         String
+  status         IncidentStatus    @default(NEW)
+  chosenSeverity IncidentSeverity?
+  chosenTechnique String?
+  chosenVerdict  IncidentVerdict?
+  actionTaken    String?
+  kqlUsed        Boolean           @default(false)
+  // Sub-scores do SOC Analyst Score (0-100)
+  scoreDetection     Int?
+  scoreInvestigation Int?
+  scoreKql           Int?
+  scoreMitre         Int?
+  scoreDocumentation Int?
+  scoreDecision      Int?
+  overall            Int?
+  startedAt      DateTime          @default(now())
+  submittedAt    DateTime?
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("incident_attempts")
+}
+
+// ============================================================================
+// DETECTION ENGINEERING — escrever KQL contra logs sintéticos
+// ============================================================================
+
+model DetectionChallenge {
+  id          String        @id @default(uuid())
+  title       String
+  description String
+  base        String        // ex.: "SecurityEvent"
+  mitre       String        // ex.: "T1110"
+  logs        Json          // eventos sintéticos: [{ ..., malicious: bool }]
+  // Regra de referência (tokens exigidos + filtro de precisão) para o avaliador.
+  requiredTokens String[]   @default([])
+  precisionTokens String[]  @default([])
+  passScore   Int           @default(70)
+  status      ContentStatus @default(PUBLISHED)
+  createdAt   DateTime      @default(now())
+
+  submissions DetectionSubmission[]
+
+  @@map("detection_challenges")
+}
+
+model DetectionSubmission {
+  id            String   @id @default(uuid())
+  challengeId   String
+  userId        String
+  kql           String
+  eventsMatched Int
+  truePositives Int
+  falsePositives Int
+  score         Int
+  createdAt     DateTime @default(now())
+
+  challenge DetectionChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@index([challengeId])
+  @@map("detection_submissions")
+}

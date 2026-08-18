@@ -1,0 +1,111 @@
+/* Identidade Think IT (extraída do Book Executivo): tema claro, teal + lime */
+  /* Cyber Intelligence Framework (Stitch) — Inter + JetBrains Mono, teal/lime */
+  :root{
+    --bg:#F7F8F8; --ink:#191c22; --teal:#277471; --teal-deep:#005b58; --teal2:#4D9996; --lime:#C8D541;
+    --orange:#E88A3A; --red:#ba1a1a; --gray:#3f4948; --muted:#6f7978;
+    --border:#E6E7E7; --card:#FFFFFF; --dark:#21242B;
+    --teal-tint:#EFF6F5; --lime-tint:#F5F8E9;
+    --shadow:0 1px 2px rgba(33,36,43,.04), 0 8px 24px rgba(33,36,43,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);
+    font-family:"Inter","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  .mono,.kicker,.ck,.pill,.logo .t2,.htag{font-family:"JetBrains Mono",ui-monospace,monospace}
+  .ms{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;font-size:20px;line-height:1;
+    letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .app{display:flex;min-height:100vh}
+
+  /* Sidebar (ink escuro, como os cards de destaque do book) */
+  .sidebar{width:244px;flex-shrink:0;background:var(--dark);color:#fff;
+    padding:22px 14px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .logo{display:flex;align-items:center;gap:10px;padding:2px 8px 0}
+  .logo .mark{flex-shrink:0}
+  .logo .t1{font-weight:800;font-size:20px;letter-spacing:.2px;line-height:1}
+  .logo .t2{color:var(--lime);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-top:3px}
+  .nav{display:flex;flex-direction:column;gap:1px;margin-top:18px;flex:1;overflow:auto}
+  .navsec{font-size:10px;letter-spacing:1.6px;color:#6b727a;text-transform:uppercase;padding:14px 12px 5px}
+  .nav button{display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;
+    color:#c7ccd2;padding:10px 12px;border-radius:8px;font-size:14px;cursor:pointer;text-align:left;
+    border-left:3px solid transparent}
+  .nav button:hover{background:#2b2f37;color:#fff}
+  .nav button.active{background:#2b2f37;color:#fff;border-left-color:var(--lime)}
+  .nav .ic{width:22px;text-align:center;font-size:20px}
+  .foot{color:#6b727a;font-size:11px;padding:10px 12px 0;border-top:1px solid #2b2f37;margin-top:8px}
+  .logout{margin-top:6px;color:#c7ccd2;font-size:14px;padding:9px 12px;background:none;border:none;text-align:left;cursor:pointer;border-radius:8px}
+  .logout:hover{background:#2b2f37;color:#fff}
+
+  /* Topbar */
+  .content{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{display:flex;align-items:center;gap:16px;background:#fff;
+    border-bottom:1px solid var(--border);padding:12px 26px;position:sticky;top:0;z-index:5}
+  .search{flex:1;max-width:460px}
+  .search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;
+    padding:9px 13px;color:var(--ink);font-size:14px;outline:none}
+  .search input:focus{border-color:var(--teal)}
+  .search input::placeholder{color:var(--muted)}
+  .bell{position:relative;background:var(--bg);border:1px solid var(--border);border-radius:8px;
+    padding:8px 11px;cursor:pointer;font-size:15px}
+  .bell .badge{position:absolute;top:-6px;right:-6px;background:var(--teal);color:#fff;
+    font-size:10px;font-weight:800;border-radius:999px;min-width:18px;height:18px;display:flex;
+    align-items:center;justify-content:center;padding:0 4px}
+  main{padding:30px 34px;max-width:1160px;width:100%;margin:0 auto}
+
+  /* Cabeçalho de seção (assinatura do book) */
+  .head{display:flex;gap:14px;margin-bottom:22px}
+  .head .accent{width:6px;border-radius:3px;background:linear-gradient(var(--lime) 0 50%,var(--teal) 50% 100%);flex-shrink:0}
+  .kicker{color:var(--teal);font-size:12px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;margin-bottom:4px}
+  h1{font-size:30px;margin:0;font-weight:800;letter-spacing:-.3px}
+  .head .sub{color:var(--gray);font-size:14px;margin-top:6px}
+
+  /* Cards */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:var(--shadow)}
+  .card.top{border-top:4px solid var(--teal)}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  h2{font-size:15px;margin:0 0 14px;font-weight:700}
+  .ck{color:var(--teal);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin:0 0 12px}
+
+  /* KPI (cartão com borda superior colorida) */
+  .kpi{background:var(--card);border:1px solid var(--border);border-top-width:4px;border-radius:10px;padding:16px 18px;box-shadow:var(--shadow)}
+  .kpi .l{font-size:13px;font-weight:700;color:var(--ink)}
+  .kpi .v{font-size:30px;font-weight:800;margin:8px 0 6px}
+  .kpi .u{width:40px;height:2px;border-radius:2px;margin-bottom:8px}
+  .kpi .h{color:var(--muted);font-size:11px}
+
+  .pill{display:inline-block;background:var(--teal-tint);border:1px solid #d6e8e6;
+    color:var(--teal);border-radius:999px;font-size:11px;font-weight:600;padding:2px 10px}
+  .tag{color:var(--muted);font-size:12px}
+  .track{height:8px;background:#eceeee;border-radius:999px;overflow:hidden}
+  .bar{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--teal),var(--lime))}
+  .btn{background:var(--teal);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  .btn:hover{background:#1f605d}
+  .btn.ghost{background:#eef1f1;color:var(--gray)}
+  .btn.danger{background:#f6e3e3;color:var(--red)}
+  .muted{color:var(--muted)} .row{display:flex;align-items:center;justify-content:space-between}
+  .clickable{cursor:pointer;transition:box-shadow .15s,border-color .15s}
+  .clickable:hover{border-color:var(--teal);box-shadow:0 6px 22px rgba(39,116,113,.12)}
+  .view{display:none}.view.active{display:block}
+  .backlink{color:var(--teal);font-size:13px;cursor:pointer;display:inline-block;margin-bottom:14px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  .banner{background:var(--teal-tint);border:1px solid #d6e8e6;border-radius:10px;padding:10px 14px;color:var(--teal);font-size:12px;margin-bottom:16px}
+  .sw{width:40px;height:23px;border-radius:999px;position:relative;display:inline-block;cursor:pointer;flex-shrink:0}
+  .sw::after{content:"";position:absolute;top:2.5px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .sw.on{background:var(--teal)}.sw.on::after{left:19px}
+  .sw.off{background:#cfd4d4}.sw.off::after{left:2.5px}
+  .delta{font-family:"JetBrains Mono";font-size:11px;font-weight:500;border-radius:6px;padding:2px 7px}
+  .delta.up{background:var(--lime-tint);color:#5c6300}.delta.down{background:#fdecea;color:var(--red)}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;box-shadow:0 0 0 0 rgba(186,26,26,.6);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(186,26,26,.6)}70%{box-shadow:0 0 0 8px rgba(186,26,26,0)}100%{box-shadow:0 0 0 0 rgba(186,26,26,0)}}
+
+  /* Card escuro de destaques (igual ao book) */
+  .dark{background:var(--dark);color:#fff;border-radius:12px;padding:20px}
+  .dark .ck{color:var(--lime)}
+  .hl{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px}
+  .hl:last-child{margin-bottom:0}
+  .htag{flex-shrink:0;width:96px;text-align:center;font-size:11px;font-weight:800;letter-spacing:.6px;
+    color:#fff;border-radius:6px;padding:7px 0;text-transform:uppercase}
+  .hl p{margin:0;font-size:12.5px;color:#c7ccd2;line-height:1.5}

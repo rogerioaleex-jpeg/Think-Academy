@@ -1,0 +1,27 @@
+{
+  "name": "think-it-cyber-academy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Think IT Cyber Academy — plataforma corporativa de treinamento em Cybersecurity",
+  "packageManager": "pnpm@9.7.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "db:generate": "pnpm --filter @tica/database generate",
+    "db:migrate": "pnpm --filter @tica/database migrate",
+    "db:seed": "pnpm --filter @tica/database seed",
+    "api:dev": "pnpm --filter @tica/api start:dev",
+    "web:dev": "pnpm --filter @tica/web dev"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "turbo": "^2.0.0",
+    "typescript": "^5.5.4"
+  }
+}

@@ -1,0 +1,79 @@
+# =============================================================================
+# Render Blueprint — Think IT Cyber Academy
+# Provisiona: 1 banco PostgreSQL + API (NestJS) + Web (Next.js).
+#
+# Como usar: no dashboard do Render → "New +" → "Blueprint" → conecte este repo.
+# O Render lê este arquivo e cria os 3 recursos. Depois preencha as 2 variáveis
+# marcadas com `sync: false` (as URLs, que só existem após a criação) e mande
+# redeploy. Passo a passo completo em docs/08-deploy-render.md.
+#
+# Observação: `--prod=false` força a instalação das devDependencies (nest-cli,
+# prisma, tsc) necessárias no build. O plano free hiberna após inatividade.
+# =============================================================================
+
+databases:
+  - name: tica-db
+    databaseName: tica
+    user: tica
+    plan: free
+    region: oregon
+
+services:
+  # ---------------------------------------------------------------------------
+  # API — NestJS
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: tica-api
+    runtime: node
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --prod=false &&
+      pnpm --filter @tica/database run build &&
+      pnpm --filter @tica/database exec prisma db push --skip-generate &&
+      pnpm --filter @tica/api run build
+    startCommand: pnpm --filter @tica/api run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true # Render gera um segredo forte e único
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      # Cookies cross-site (web e API em subdomínios .onrender.com diferentes)
+      # exigem SameSite=None + Secure. Com domínio próprio, veja o doc.
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tica-db
+          property: connectionString
+      # URL do frontend liberada no CORS — preencher após o 1º deploy.
+      - key: WEB_ORIGIN
+        sync: false
+      # URL pública da PRÓPRIA API (usada para montar as signed URLs de mídia).
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # ---------------------------------------------------------------------------
+  # Web — Next.js
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: tica-web
+    runtime: node
+    plan: free
+    region: oregon
+    healthCheckPath: /
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --prod=false &&
+      pnpm --filter @tica/web run build
+    startCommand: pnpm --filter @tica/web exec next start -p $PORT
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # URL pública da API — INLINADA no build do Next; preencher e redeployar.
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
