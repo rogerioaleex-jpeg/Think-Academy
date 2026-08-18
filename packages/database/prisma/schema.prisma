@@ -396,7 +396,12 @@ model Video {
   id           String   @id @default(uuid())
   title        String
   description  String?
-  storageKey   String   // chave no bucket (nunca URL pública permanente)
+  // Vídeo hospedado em bucket próprio (nunca URL pública permanente) — opcional
+  // hoje: nenhum provider de storage real está conectado ainda.
+  storageKey   String?
+  // Vídeo hospedado externamente (YouTube, Vimeo, etc.) — usado enquanto não há
+  // upload de arquivo real. Um dos dois (storageKey/externalUrl) deve existir.
+  externalUrl  String?
   thumbnailKey String?
   durationSec  Int      @default(0)
   sizeBytes    Int      @default(0)

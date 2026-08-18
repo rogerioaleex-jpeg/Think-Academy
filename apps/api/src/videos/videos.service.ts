@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 
@@ -9,14 +9,18 @@ export class VideosService {
     private storage: StorageService,
   ) {}
 
-  create(data: { title: string; description?: string; storageKey: string; durationSec?: number; sizeBytes?: number; thumbnailKey?: string }) {
+  create(data: { title: string; description?: string; storageKey?: string; externalUrl?: string; durationSec?: number; sizeBytes?: number; thumbnailKey?: string }) {
+    if (!data.storageKey && !data.externalUrl) {
+      throw new BadRequestException('Informe storageKey (bucket) ou externalUrl (YouTube/Vimeo/etc.).');
+    }
     return this.prisma.video.create({ data });
   }
 
   /**
-   * Retorna a URL de reprodução ASSINADA e temporária de um vídeo.
+   * Retorna a URL de reprodução de um vídeo: direta se for externo
+   * (YouTube/Vimeo/etc.), ou ASSINADA e temporária se estiver no bucket próprio.
    * A autorização de acesso ao curso deve ser verificada antes (feito no controller
-   * via matrícula) — nunca expomos a chave pública permanente.
+   * via matrícula) — nunca expomos a chave pública permanente do bucket.
    */
   async getPlaybackUrl(videoId: string) {
     const video = await this.prisma.video.findUnique({ where: { id: videoId } });
@@ -25,7 +29,8 @@ export class VideosService {
       videoId: video.id,
       title: video.title,
       durationSec: video.durationSec,
-      url: this.storage.getSignedDownloadUrl(video.storageKey),
+      external: !!video.externalUrl,
+      url: video.externalUrl ?? this.storage.getSignedDownloadUrl(video.storageKey!),
       thumbnailUrl: video.thumbnailKey ? this.storage.getSignedDownloadUrl(video.thumbnailKey) : null,
     };
   }

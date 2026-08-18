@@ -114,9 +114,9 @@ function CourseStructure({ courseId, onChange }: { courseId: string; onChange: (
     await api(`/courses/modules/${moduleId}/lessons`, { method: 'POST', body: JSON.stringify({ title, videoId: videoId || undefined }) });
     reload();
   }
-  async function registerVideo(title: string): Promise<string> {
-    const v = await api<{ id: string }>('/videos', { method: 'POST', body: JSON.stringify({ title, storageKey: `videos/${slugify(title)}.mp4`, durationSec: 600 }) });
-    setMsg(`Vídeo registrado: ${v.id.slice(0, 8)} (storageKey gerado).`);
+  async function registerVideo(title: string, externalUrl: string): Promise<string> {
+    const v = await api<{ id: string }>('/videos', { method: 'POST', body: JSON.stringify({ title, externalUrl }) });
+    setMsg(`Vídeo vinculado (YouTube/Vimeo/link direto).`);
     return v.id;
   }
 
@@ -137,7 +137,8 @@ function CourseStructure({ courseId, onChange }: { courseId: string; onChange: (
 
 function ModuleRow({ module, onAddLesson, onRegisterVideo }: any) {
   const [lessonTitle, setLessonTitle] = useState('');
-  const [withVideo, setWithVideo] = useState(false);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [err, setErr] = useState('');
   return (
     <div className="mb-3 rounded-lg bg-surface2/50 p-3">
       <p className="mb-2 text-sm font-medium text-ink">{module.title}</p>
@@ -147,18 +148,21 @@ function ModuleRow({ module, onAddLesson, onRegisterVideo }: any) {
       <div className="flex items-center gap-2">
         <input value={lessonTitle} onChange={(e) => setLessonTitle(e.target.value)} placeholder="Nova aula"
           className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-ink" />
-        <label className="flex items-center gap-1 text-[11px] text-muted">
-          <input type="checkbox" checked={withVideo} onChange={(e) => setWithVideo(e.target.checked)} /> vídeo
-        </label>
+        <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Link do vídeo (YouTube, Vimeo… opcional)"
+          className="flex-[1.3] rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-ink" />
         <button
           onClick={async () => {
             if (!lessonTitle) return;
-            const videoId = withVideo ? await onRegisterVideo(lessonTitle) : undefined;
-            await onAddLesson(module.id, lessonTitle, videoId);
-            setLessonTitle('');
+            setErr('');
+            try {
+              const videoId = videoUrl ? await onRegisterVideo(lessonTitle, videoUrl) : undefined;
+              await onAddLesson(module.id, lessonTitle, videoId);
+              setLessonTitle(''); setVideoUrl('');
+            } catch (e) { setErr((e as Error).message); }
           }}
           className="rounded-lg bg-brand px-3 py-1.5 text-xs text-white">+ Aula</button>
       </div>
+      {err && <p className="mt-2 text-[11px] text-danger">{err}</p>}
     </div>
   );
 }
