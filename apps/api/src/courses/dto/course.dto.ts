@@ -12,9 +12,23 @@ export class CreateCourseDto {
   @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;
   @ApiPropertyOptional({ description: 'Prova aplicada ao concluir o curso (id de um Exam existente); null para remover.' })
   @IsOptional() @IsString() finalExamId?: string | null;
+  @ApiPropertyOptional({ type: [String], description: 'Bullets de "O que você vai aprender".' })
+  @IsOptional() @IsArray() @IsString({ each: true }) learningOutcomes?: string[];
 }
 
 export class UpdateCourseDto extends PartialType(CreateCourseDto) {}
+
+export class SetCourseCompetenciesDto {
+  @ApiProperty({ type: [String] })
+  @IsArray() @IsString({ each: true })
+  competencyIds!: string[];
+}
+
+export class SetCourseTagsDto {
+  @ApiProperty({ type: [String], description: 'Nomes das tags; criadas automaticamente se não existirem.' })
+  @IsArray() @IsString({ each: true })
+  tags!: string[];
+}
 
 export class CreateModuleDto {
   @ApiProperty() @IsString() title!: string;

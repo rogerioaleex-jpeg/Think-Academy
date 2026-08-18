@@ -310,16 +310,19 @@ model Course {
   // Avaliação aplicada ao concluir o curso, para confirmar a absorção do
   // conteúdo — opcional, reaproveita o mesmo banco de provas do admin.
   finalExamId      String?
+  // Bullets de "O que você vai aprender", exibidos na página do curso.
+  learningOutcomes String[]      @default([])
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  category   Category?     @relation(fields: [categoryId], references: [id])
-  instructor User?         @relation("CourseInstructor", fields: [instructorId], references: [id])
-  finalExam  Exam?         @relation("CourseFinalExam", fields: [finalExamId], references: [id])
-  modules    Module[]
-  tags       CourseTag[]
-  enrollments Enrollment[]
-  pathCourses LearningPathCourse[]
+  category     Category?          @relation(fields: [categoryId], references: [id])
+  instructor   User?              @relation("CourseInstructor", fields: [instructorId], references: [id])
+  finalExam    Exam?              @relation("CourseFinalExam", fields: [finalExamId], references: [id])
+  modules      Module[]
+  tags         CourseTag[]
+  competencies CourseCompetency[]
+  enrollments  Enrollment[]
+  pathCourses  LearningPathCourse[]
 
   @@index([status])
   @@map("courses")
@@ -333,6 +336,17 @@ model CourseTag {
 
   @@id([courseId, tagId])
   @@map("course_tags")
+}
+
+/// Competências que o curso desenvolve — exibidas na página do curso.
+model CourseCompetency {
+  courseId     String
+  competencyId String
+  course     Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, competencyId])
+  @@map("course_competencies")
 }
 
 model Module {
@@ -808,7 +822,8 @@ model Competency {
   name        String
   description String?
 
-  users UserCompetency[]
+  users   UserCompetency[]
+  courses CourseCompetency[]
 
   @@map("competencies")
 }

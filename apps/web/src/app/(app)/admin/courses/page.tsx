@@ -10,6 +10,7 @@ export default function AdminCoursesPage() {
   const [courses, setCourses] = useState<any[]>([]);
   const [cats, setCats] = useState<any[]>([]);
   const [exams, setExams] = useState<any[]>([]);
+  const [competencyCatalog, setCompetencyCatalog] = useState<any[]>([]);
   const [form, setForm] = useState({ title: '', shortDescription: '', difficulty: 'EASY', estimatedHours: 8, categoryId: '' });
   const [expanded, setExpanded] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
@@ -19,6 +20,7 @@ export default function AdminCoursesPage() {
     load();
     api<any[]>('/categories').then(setCats).catch(() => {});
     api<any[]>('/exams').then(setExams).catch(() => {});
+    api<any[]>('/competencies').then(setCompetencyCatalog).catch(() => {});
   }, []);
 
   async function create(e: React.FormEvent) {
@@ -92,7 +94,7 @@ export default function AdminCoursesPage() {
                   className="rounded-lg bg-brand px-3 py-1.5 text-xs text-white">{c.status === 'PUBLISHED' ? 'Despublicar' : 'Publicar'}</button>
               </div>
             </div>
-            {expanded === c.id && <CourseStructure courseId={c.id} exams={exams} onChange={load} />}
+            {expanded === c.id && <CourseStructure courseId={c.id} exams={exams} competencyCatalog={competencyCatalog} onChange={load} />}
           </Card>
         ))}
       </div>
@@ -100,17 +102,44 @@ export default function AdminCoursesPage() {
   );
 }
 
-function CourseStructure({ courseId, exams, onChange }: { courseId: string; exams: any[]; onChange: () => void }) {
+function CourseStructure({ courseId, exams, competencyCatalog, onChange }: { courseId: string; exams: any[]; competencyCatalog: any[]; onChange: () => void }) {
   const [moduleTitle, setModuleTitle] = useState('');
   const [modules, setModules] = useState<any[]>([]);
   const [finalExam, setFinalExam] = useState<any>(null);
   const [examChoice, setExamChoice] = useState('');
+  const [outcomes, setOutcomes] = useState('');
+  const [selectedCompetencies, setSelectedCompetencies] = useState<string[]>([]);
+  const [tagsText, setTagsText] = useState('');
   const [msg, setMsg] = useState('');
 
   function reload() {
-    api<any>(`/courses/${courseId}`).then((c) => { setModules(c.modules ?? []); setFinalExam(c.finalExam ?? null); }).catch(() => {});
+    api<any>(`/courses/${courseId}`).then((c) => {
+      setModules(c.modules ?? []);
+      setFinalExam(c.finalExam ?? null);
+      setOutcomes((c.learningOutcomes ?? []).join('\n'));
+      setSelectedCompetencies((c.competencies ?? []).map((cc: any) => cc.competency.id));
+      setTagsText((c.tags ?? []).map((t: any) => t.tag.name).join(', '));
+    }).catch(() => {});
   }
   useEffect(reload, [courseId]);
+
+  async function saveOutcomes() {
+    const learningOutcomes = outcomes.split('\n').map((l) => l.trim()).filter(Boolean);
+    await api(`/courses/${courseId}`, { method: 'PATCH', body: JSON.stringify({ learningOutcomes }) });
+    setMsg('"O que você vai aprender" atualizado.'); reload();
+  }
+  function toggleCompetency(id: string) {
+    setSelectedCompetencies((sel) => sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
+  }
+  async function saveCompetencies() {
+    await api(`/courses/${courseId}/competencies`, { method: 'POST', body: JSON.stringify({ competencyIds: selectedCompetencies }) });
+    setMsg('Competências atualizadas.'); reload();
+  }
+  async function saveTags() {
+    const tags = tagsText.split(',').map((t) => t.trim()).filter(Boolean);
+    await api(`/courses/${courseId}/tags`, { method: 'POST', body: JSON.stringify({ tags }) });
+    setMsg('Tags atualizadas.'); reload();
+  }
 
   async function addModule() {
     if (!moduleTitle) return;
@@ -167,6 +196,37 @@ function CourseStructure({ courseId, exams, onChange }: { courseId: string; exam
         {exams.length === 0 && !finalExam && (
           <p className="mt-2 text-[11px] text-muted">Nenhuma prova no banco ainda — crie uma em Admin · Banco de questões.</p>
         )}
+      </div>
+
+      <div className="mt-4 rounded-lg bg-surface2/50 p-3">
+        <p className="mb-2 text-sm font-medium text-ink">O que o aluno vai aprender (uma linha por item)</p>
+        <textarea value={outcomes} onChange={(e) => setOutcomes(e.target.value)} rows={4}
+          placeholder={'Investigar incidentes de segurança com SIEM\nEscrever consultas KQL para caça a ameaças\n...'}
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-ink" />
+        <Button onClick={saveOutcomes} className="mt-2 px-3 py-1.5 text-xs">Salvar</Button>
+      </div>
+
+      <div className="mt-4 rounded-lg bg-surface2/50 p-3">
+        <p className="mb-2 text-sm font-medium text-ink">Competências desenvolvidas</p>
+        <div className="flex flex-wrap gap-2">
+          {competencyCatalog.map((c) => (
+            <label key={c.id} className={`cursor-pointer rounded-full border px-3 py-1 text-xs ${
+              selectedCompetencies.includes(c.id) ? 'border-brand bg-[#EFF6F5] text-brand' : 'border-border text-muted'
+            }`}>
+              <input type="checkbox" className="hidden" checked={selectedCompetencies.includes(c.id)} onChange={() => toggleCompetency(c.id)} />
+              {c.name}
+            </label>
+          ))}
+        </div>
+        {competencyCatalog.length === 0 && <p className="text-[11px] text-muted">Nenhuma competência cadastrada.</p>}
+        <Button onClick={saveCompetencies} className="mt-2 px-3 py-1.5 text-xs">Salvar competências</Button>
+      </div>
+
+      <div className="mt-4 rounded-lg bg-surface2/50 p-3">
+        <p className="mb-2 text-sm font-medium text-ink">Tags / temas relacionados (separados por vírgula)</p>
+        <input value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="SIEM, Threat Hunting, Blue Team…"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-xs text-ink" />
+        <Button onClick={saveTags} className="mt-2 px-3 py-1.5 text-xs">Salvar tags</Button>
       </div>
 
       {msg && <p className="mt-2 text-xs text-brand">{msg}</p>}

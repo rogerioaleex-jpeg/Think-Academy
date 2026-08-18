@@ -5,6 +5,9 @@ import {
   CreateCourseDto, UpdateCourseDto, CreateModuleDto, CreateLessonDto, UpdateProgressDto,
 } from './dto/course.dto';
 
+const slugify = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
 @Injectable()
 export class CoursesService {
   constructor(
@@ -34,7 +37,11 @@ export class CoursesService {
       where: { id },
       include: {
         category: true,
+        instructor: { select: { id: true, name: true } },
         finalExam: { select: { id: true, title: true, passScorePct: true, questionCount: true, durationMin: true } },
+        tags: { include: { tag: true } },
+        competencies: { include: { competency: true } },
+        _count: { select: { enrollments: true } },
         modules: {
           orderBy: { order: 'asc' },
           include: {
@@ -48,6 +55,37 @@ export class CoursesService {
     });
     if (!course) throw new NotFoundException('Curso não encontrado.');
     return course;
+  }
+
+  /** Substitui o conjunto de competências que o curso desenvolve. */
+  async setCompetencies(courseId: string, competencyIds: string[]) {
+    await this.get(courseId);
+    await this.prisma.courseCompetency.deleteMany({ where: { courseId } });
+    if (competencyIds.length) {
+      await this.prisma.courseCompetency.createMany({
+        data: competencyIds.map((competencyId) => ({ courseId, competencyId })),
+        skipDuplicates: true,
+      });
+    }
+    return this.get(courseId);
+  }
+
+  /** Substitui o conjunto de tags do curso, criando as que não existirem. */
+  async setTags(courseId: string, tagNames: string[]) {
+    await this.get(courseId);
+    const names = [...new Set(tagNames.map((t) => t.trim()).filter(Boolean))];
+    const tags = await Promise.all(names.map((name) => {
+      const slug = slugify(name);
+      return this.prisma.tag.upsert({ where: { slug }, update: {}, create: { name, slug } });
+    }));
+    await this.prisma.courseTag.deleteMany({ where: { courseId } });
+    if (tags.length) {
+      await this.prisma.courseTag.createMany({
+        data: tags.map((t) => ({ courseId, tagId: t.id })),
+        skipDuplicates: true,
+      });
+    }
+    return this.get(courseId);
   }
 
   create(dto: CreateCourseDto) {

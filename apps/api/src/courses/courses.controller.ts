@@ -6,6 +6,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import {
   CreateCourseDto, UpdateCourseDto, CreateModuleDto, CreateLessonDto, UpdateProgressDto, BulkAssignDto,
+  SetCourseCompetenciesDto, SetCourseTagsDto,
 } from './dto/course.dto';
 
 const ADMINS = [RoleName.SUPER_ADMIN, RoleName.ADMIN, RoleName.INSTRUCTOR];
@@ -59,6 +60,20 @@ export class CoursesController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.courses.remove(id);
+  }
+
+  @Roles(...ADMINS)
+  @Post(':id/competencies')
+  @ApiOperation({ summary: 'Define as competências que o curso desenvolve (substitui o conjunto atual).' })
+  setCompetencies(@Param('id') id: string, @Body() dto: SetCourseCompetenciesDto) {
+    return this.courses.setCompetencies(id, dto.competencyIds);
+  }
+
+  @Roles(...ADMINS)
+  @Post(':id/tags')
+  @ApiOperation({ summary: 'Define as tags do curso (cria as que não existirem, substitui o conjunto atual).' })
+  setTags(@Param('id') id: string, @Body() dto: SetCourseTagsDto) {
+    return this.courses.setTags(id, dto.tags);
   }
 
   @Roles(...ADMINS)
