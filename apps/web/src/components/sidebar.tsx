@@ -12,25 +12,21 @@ const NAV: Section[] = [
     { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { href: '/courses', label: 'Cursos & Trilhas', icon: 'menu_book' },
     { href: '/labs', label: 'Cyber Labs', icon: 'terminal' },
-    { href: '/soc-live', label: 'SOC Live', icon: 'monitor_heart' },
     { href: '/exams', label: 'Avaliações', icon: 'quiz' },
   ]},
   { title: 'Progresso', items: [
     { href: '/leaderboard', label: 'Ranking', icon: 'leaderboard' },
     { href: '/achievements', label: 'Conquistas', icon: 'military_tech' },
-    { href: '/competencies', label: 'Competências', icon: 'radar' },
     { href: '/certificates', label: 'Certificados', icon: 'workspace_premium' },
     { href: '/notifications', label: 'Notificações', icon: 'notifications' },
   ]},
   { title: 'Gestão', items: [
     { href: '/manager', label: 'Gestor', icon: 'groups' },
     { href: '/talent', label: 'Gestão de Talentos', icon: 'insights' },
-    { href: '/roi', label: 'ROI & Custos', icon: 'payments' },
     { href: '/assign', label: 'Atribuição em massa', icon: 'group_add' },
   ]},
   { title: 'Admin', items: [
     { href: '/admin', label: 'Administração', icon: 'settings' },
-    { href: '/admin/security', label: 'Segurança', icon: 'security' },
   ]},
 ];
 
