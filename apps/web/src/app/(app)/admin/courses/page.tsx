@@ -9,12 +9,17 @@ const slugify = (s: string) =>
 export default function AdminCoursesPage() {
   const [courses, setCourses] = useState<any[]>([]);
   const [cats, setCats] = useState<any[]>([]);
+  const [exams, setExams] = useState<any[]>([]);
   const [form, setForm] = useState({ title: '', shortDescription: '', difficulty: 'EASY', estimatedHours: 8, categoryId: '' });
   const [expanded, setExpanded] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
 
   function load() { api<any[]>('/courses/admin/all').then(setCourses).catch(() => {}); }
-  useEffect(() => { load(); api<any[]>('/categories').then(setCats).catch(() => {}); }, []);
+  useEffect(() => {
+    load();
+    api<any[]>('/categories').then(setCats).catch(() => {});
+    api<any[]>('/exams').then(setExams).catch(() => {});
+  }, []);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
@@ -87,7 +92,7 @@ export default function AdminCoursesPage() {
                   className="rounded-lg bg-brand px-3 py-1.5 text-xs text-white">{c.status === 'PUBLISHED' ? 'Despublicar' : 'Publicar'}</button>
               </div>
             </div>
-            {expanded === c.id && <CourseStructure courseId={c.id} onChange={load} />}
+            {expanded === c.id && <CourseStructure courseId={c.id} exams={exams} onChange={load} />}
           </Card>
         ))}
       </div>
@@ -95,13 +100,15 @@ export default function AdminCoursesPage() {
   );
 }
 
-function CourseStructure({ courseId, onChange }: { courseId: string; onChange: () => void }) {
+function CourseStructure({ courseId, exams, onChange }: { courseId: string; exams: any[]; onChange: () => void }) {
   const [moduleTitle, setModuleTitle] = useState('');
   const [modules, setModules] = useState<any[]>([]);
+  const [finalExam, setFinalExam] = useState<any>(null);
+  const [examChoice, setExamChoice] = useState('');
   const [msg, setMsg] = useState('');
 
   function reload() {
-    api<any>(`/courses/${courseId}`).then((c) => setModules(c.modules ?? [])).catch(() => {});
+    api<any>(`/courses/${courseId}`).then((c) => { setModules(c.modules ?? []); setFinalExam(c.finalExam ?? null); }).catch(() => {});
   }
   useEffect(reload, [courseId]);
 
@@ -119,6 +126,15 @@ function CourseStructure({ courseId, onChange }: { courseId: string; onChange: (
     setMsg(`Vídeo vinculado (YouTube/Vimeo/link direto).`);
     return v.id;
   }
+  async function linkExam() {
+    if (!examChoice) return;
+    await api(`/courses/${courseId}`, { method: 'PATCH', body: JSON.stringify({ finalExamId: examChoice }) });
+    setExamChoice(''); setMsg('Prova final vinculada.'); reload();
+  }
+  async function unlinkExam() {
+    await api(`/courses/${courseId}`, { method: 'PATCH', body: JSON.stringify({ finalExamId: null }) });
+    setMsg('Prova final removida.'); reload();
+  }
 
   return (
     <div className="mt-4 border-t border-border pt-4">
@@ -130,6 +146,29 @@ function CourseStructure({ courseId, onChange }: { courseId: string; onChange: (
       {modules.map((m) => (
         <ModuleRow key={m.id} module={m} onAddLesson={addLesson} onRegisterVideo={registerVideo} />
       ))}
+
+      <div className="mt-4 rounded-lg bg-surface2/50 p-3">
+        <p className="mb-2 text-sm font-medium text-ink">Prova final (aplicada ao concluir o curso)</p>
+        {finalExam ? (
+          <div className="flex items-center justify-between text-xs text-muted">
+            <span>Vinculada: <b className="text-ink">{finalExam.title}</b> · nota mínima {finalExam.passScorePct}%</span>
+            <button onClick={unlinkExam} className="rounded-lg bg-surface2 px-3 py-1.5 text-xs text-danger">Remover</button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <select value={examChoice} onChange={(e) => setExamChoice(e.target.value)}
+              className="flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-ink">
+              <option value="">Selecione uma prova do banco…</option>
+              {exams.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+            </select>
+            <button onClick={linkExam} className="rounded-lg bg-brand px-3 py-1.5 text-xs text-white">Vincular</button>
+          </div>
+        )}
+        {exams.length === 0 && !finalExam && (
+          <p className="mt-2 text-[11px] text-muted">Nenhuma prova no banco ainda — crie uma em Admin · Banco de questões.</p>
+        )}
+      </div>
+
       {msg && <p className="mt-2 text-xs text-brand">{msg}</p>}
     </div>
   );

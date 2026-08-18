@@ -307,11 +307,15 @@ model Course {
   publishedAt      DateTime?
   categoryId       String?
   instructorId     String?
+  // Avaliação aplicada ao concluir o curso, para confirmar a absorção do
+  // conteúdo — opcional, reaproveita o mesmo banco de provas do admin.
+  finalExamId      String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
   category   Category?     @relation(fields: [categoryId], references: [id])
   instructor User?         @relation("CourseInstructor", fields: [instructorId], references: [id])
+  finalExam  Exam?         @relation("CourseFinalExam", fields: [finalExamId], references: [id])
   modules    Module[]
   tags       CourseTag[]
   enrollments Enrollment[]
@@ -551,6 +555,7 @@ model Exam {
   questions ExamQuestion[]
   attempts  ExamAttempt[]
   lessons   Lesson[]
+  finalExamOfCourses Course[] @relation("CourseFinalExam")
 
   @@map("exams")
 }

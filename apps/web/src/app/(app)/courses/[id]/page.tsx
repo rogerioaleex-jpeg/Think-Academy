@@ -3,14 +3,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Card, SectionHeader, Badge, Button, Progress } from '@/components/ui';
+import { FinalExamPanel } from '@/components/FinalExamPanel';
 import { DIFFICULTY_LABEL, LESSON_TYPE_ICON, resolveVideoEmbed } from '@/lib/video';
 
 interface Video { id: string; title: string; externalUrl: string | null; storageKey: string | null; durationSec: number }
 interface Lesson { id: string; title: string; description: string | null; type: string; video: Video | null }
 interface Module { id: string; title: string; description: string | null; lessons: Lesson[] }
+interface FinalExam { id: string; title: string; passScorePct: number; questionCount: number; durationMin: number }
 interface Course {
   id: string; title: string; shortDescription: string | null; description: string | null;
-  difficulty: string; estimatedHours: number; modules: Module[];
+  difficulty: string; estimatedHours: number; modules: Module[]; finalExam: FinalExam | null;
 }
 interface MyProgress {
   enrolled: boolean; progressPct: number;
@@ -173,6 +175,14 @@ export default function CourseDetailPage() {
           )}
         </Card>
       </div>
+
+      {course.finalExam && (
+        <FinalExamPanel
+          exam={course.finalExam}
+          unlocked={totalLessons > 0 && course.modules.every((m) => m.lessons.every((l) => progressByLesson.get(l.id)))}
+        />
+      )}
+
       {msg && <p className="mt-4 text-xs text-brand">{msg}</p>}
     </div>
   );

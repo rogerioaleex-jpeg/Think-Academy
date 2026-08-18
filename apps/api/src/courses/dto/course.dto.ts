@@ -10,6 +10,8 @@ export class CreateCourseDto {
   @ApiPropertyOptional({ enum: Difficulty }) @IsOptional() @IsEnum(Difficulty) difficulty?: Difficulty;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) estimatedHours?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;
+  @ApiPropertyOptional({ description: 'Prova aplicada ao concluir o curso (id de um Exam existente); null para remover.' })
+  @IsOptional() @IsString() finalExamId?: string | null;
 }
 
 export class UpdateCourseDto extends PartialType(CreateCourseDto) {}

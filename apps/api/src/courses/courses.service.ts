@@ -15,7 +15,11 @@ export class CoursesService {
   list(publishedOnly = true) {
     return this.prisma.course.findMany({
       where: publishedOnly ? { status: 'PUBLISHED' } : undefined,
-      include: { category: true, _count: { select: { modules: true, enrollments: true } } },
+      include: {
+        category: true,
+        finalExam: { select: { id: true, title: true } },
+        _count: { select: { modules: true, enrollments: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -30,6 +34,7 @@ export class CoursesService {
       where: { id },
       include: {
         category: true,
+        finalExam: { select: { id: true, title: true, passScorePct: true, questionCount: true, durationMin: true } },
         modules: {
           orderBy: { order: 'asc' },
           include: {
