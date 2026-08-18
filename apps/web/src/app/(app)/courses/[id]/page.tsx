@@ -38,8 +38,10 @@ function formatClock(sec: number): string {
   const s = Math.round(sec % 60);
   return `${m}:${String(s).padStart(2, '0')}`;
 }
-function formatMonthYear(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+function formatMonthYear(iso: string | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 }
 
 export default function CourseDetailPage() {
@@ -56,7 +58,17 @@ export default function CourseDetailPage() {
     Promise.all([
       api<Course>(`/courses/${id}`),
       api<MyProgress>(`/courses/${id}/my-progress`).catch(() => ({ enrolled: false, progressPct: 0, lessons: [] })),
-    ]).then(([c, p]) => {
+    ]).then(([raw, p]) => {
+      // Normaliza: se a API estiver numa versão anterior (deploy ainda não
+      // propagado), esses campos vêm ausentes — evita quebrar a tela.
+      const c: Course = {
+        ...raw,
+        modules: raw.modules ?? [],
+        tags: raw.tags ?? [],
+        competencies: raw.competencies ?? [],
+        learningOutcomes: raw.learningOutcomes ?? [],
+        _count: raw._count ?? { enrollments: 0 },
+      };
       setCourse(c); setProgress(p);
       setSelectedLessonId((prev) => prev ?? c.modules[0]?.lessons[0]?.id ?? null);
       setOpenModuleId((prev) => prev ?? c.modules[0]?.id ?? null);
