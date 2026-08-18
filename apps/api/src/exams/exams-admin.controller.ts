@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, ConflictException, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { RoleName, Difficulty } from '@tica/database';
+import { RoleName, Difficulty, Prisma } from '@tica/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreateQuestionDto, CreateExamDto, AttachQuestionsDto, ImportCsvDto, ImportToExamDto } from './dto/admin-exam.dto';
@@ -26,6 +26,20 @@ export class ExamsAdminController {
     });
   }
 
+  @Delete('questions/:id')
+  @ApiOperation({ summary: 'Exclui uma questão do banco (e suas alternativas).' })
+  async removeQuestion(@Param('id') id: string) {
+    try {
+      await this.prisma.question.delete({ where: { id } });
+      return { ok: true };
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2003') {
+        throw new ConflictException('Não é possível excluir: essa questão já tem respostas de tentativas de prova registradas.');
+      }
+      throw e;
+    }
+  }
+
   @Post('questions')
   @ApiOperation({ summary: 'Cria uma questão com alternativas.' })
   createQuestion(@Body() dto: CreateQuestionDto) {
@@ -42,6 +56,15 @@ export class ExamsAdminController {
         options: { create: dto.options.map((o, i) => ({ text: o.text, isCorrect: o.isCorrect, order: i })) },
       },
       include: { options: true },
+    });
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Lista todas as provas/simulados (inclui rascunhos) — admin.' })
+  listExams() {
+    return this.prisma.exam.findMany({
+      include: { _count: { select: { questions: true, attempts: true } } },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -62,6 +85,15 @@ export class ExamsAdminController {
         status: 'PUBLISHED',
       },
     });
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Exclui uma prova (mantém as questões no banco; remove o histórico de tentativas dessa prova).' })
+  async removeExam(@Param('id') id: string) {
+    // Um curso pode ter essa prova como avaliação final — desvincula antes de excluir.
+    await this.prisma.course.updateMany({ where: { finalExamId: id }, data: { finalExamId: null } });
+    await this.prisma.exam.delete({ where: { id } });
+    return { ok: true };
   }
 
   @Post(':id/questions')

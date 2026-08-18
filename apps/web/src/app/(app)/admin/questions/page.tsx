@@ -5,6 +5,7 @@ import { Card, Button, Badge } from '@/components/ui';
 
 export default function AdminQuestionsPage() {
   const [questions, setQuestions] = useState<any[]>([]);
+  const [exams, setExams] = useState<any[]>([]);
   const [msg, setMsg] = useState('');
   const [q, setQ] = useState({ prompt: '', category: 'SOC', difficulty: 'MEDIUM', explanation: '' });
   const [opts, setOpts] = useState([{ text: '', isCorrect: true }, { text: '', isCorrect: false }, { text: '', isCorrect: false }, { text: '', isCorrect: false }]);
@@ -12,8 +13,27 @@ export default function AdminQuestionsPage() {
   const [examTitle, setExamTitle] = useState('Novo Simulado');
   const [examCsv, setExamCsv] = useState('prompt,category,difficulty,optA,optB,optC,optD,correctIndex,explanation\n');
 
-  function load() { api<any[]>('/admin/exams/questions').then(setQuestions).catch(() => {}); }
+  function load() {
+    api<any[]>('/admin/exams/questions').then(setQuestions).catch(() => {});
+    api<any[]>('/admin/exams').then(setExams).catch(() => {});
+  }
   useEffect(load, []);
+
+  async function removeQuestion(id: string) {
+    if (!confirm('Excluir esta questão do banco? Não pode ser desfeito.')) return;
+    try {
+      await api(`/admin/exams/questions/${id}`, { method: 'DELETE' });
+      setMsg('Questão excluída.'); load();
+    } catch (err) { setMsg((err as Error).message); }
+  }
+
+  async function removeExam(e: any) {
+    if (!confirm(`Excluir a prova "${e.title}"? As questões continuam no banco, mas o histórico de tentativas dessa prova é apagado.`)) return;
+    try {
+      await api(`/admin/exams/${e.id}`, { method: 'DELETE' });
+      setMsg('Prova excluída.'); load();
+    } catch (err) { setMsg((err as Error).message); }
+  }
 
   async function importToExam() {
     try {
@@ -109,12 +129,34 @@ export default function AdminQuestionsPage() {
       </Card>
 
       <Card className="mt-6">
+        <h2 className="mb-3 text-sm font-semibold text-ink">Provas cadastradas ({exams.length})</h2>
+        <ul className="flex flex-col gap-2">
+          {exams.map((e) => (
+            <li key={e.id} className="flex items-center justify-between border-b border-border pb-2 text-sm">
+              <div>
+                <span className="text-ink">{e.title}</span>
+                <span className="ml-2 text-xs text-muted">{e._count?.questions ?? 0} questões · {e._count?.attempts ?? 0} tentativas</span>
+              </div>
+              <span className="flex items-center gap-2">
+                <Badge>{e.category ?? e.kind}</Badge>
+                <button onClick={() => removeExam(e)} className="rounded-lg bg-surface2 px-3 py-1.5 text-xs text-danger">Excluir</button>
+              </span>
+            </li>
+          ))}
+          {exams.length === 0 && <p className="text-xs text-muted">Nenhuma prova cadastrada ainda.</p>}
+        </ul>
+      </Card>
+
+      <Card className="mt-6">
         <h2 className="mb-3 text-sm font-semibold text-ink">Banco atual ({questions.length})</h2>
         <ul className="flex flex-col gap-2">
           {questions.map((qq) => (
             <li key={qq.id} className="flex items-center justify-between border-b border-border pb-2 text-sm">
               <span className="text-ink">{qq.prompt}</span>
-              <span className="flex gap-2"><Badge>{qq.category ?? '—'}</Badge><Badge>{qq.difficulty}</Badge></span>
+              <span className="flex items-center gap-2">
+                <Badge>{qq.category ?? '—'}</Badge><Badge>{qq.difficulty}</Badge>
+                <button onClick={() => removeQuestion(qq.id)} className="rounded-lg bg-surface2 px-3 py-1.5 text-xs text-danger">Excluir</button>
+              </span>
             </li>
           ))}
         </ul>
