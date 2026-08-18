@@ -137,17 +137,17 @@ async function main() {
 
   // ---------------------------------------------------------------- Badges
   const badges = [
-    ['First Course', 'first-course', 'Concluiu seu primeiro curso', 50],
-    ['First Lab', 'first-lab', 'Concluiu seu primeiro laboratório', 100],
-    ['SOC Beginner', 'soc-beginner', 'Iniciou a trilha SOC Analyst N1', 25],
-    ['Log Hunter', 'log-hunter', 'Concluiu labs de análise de logs', 150],
-    ['Threat Hunter', 'threat-hunter', 'Concluiu o módulo de Threat Hunting', 200],
-    ['Incident Investigator', 'incident-investigator', 'Resolveu o SOC Investigation Lab', 250],
-    ['Cloud Defender', 'cloud-defender', 'Concluiu a trilha de Cloud Security', 200],
-    ['Security Fundamentals', 'security-fundamentals', 'Passou no simulado de fundamentos', 100],
-    ['KQL Analyst', 'kql-analyst', 'Dominou consultas KQL', 150],
-    ['SIEM Analyst', 'siem-analyst', 'Concluiu o módulo de SIEM', 150],
-    ['Cyber Defender', 'cyber-defender', 'Concluiu a trilha SOC Analyst N1', 500],
+    ['Primeiro Curso', 'first-course', 'Concluiu seu primeiro curso', 50],
+    ['Primeiro Lab', 'first-lab', 'Concluiu seu primeiro laboratório', 100],
+    ['Iniciante em SOC', 'soc-beginner', 'Iniciou a trilha SOC Analyst N1', 25],
+    ['Caçador de Logs', 'log-hunter', 'Concluiu labs de análise de logs', 150],
+    ['Caçador de Ameaças', 'threat-hunter', 'Concluiu o módulo de Threat Hunting', 200],
+    ['Investigador de Incidentes', 'incident-investigator', 'Resolveu o SOC Investigation Lab', 250],
+    ['Defensor de Nuvem', 'cloud-defender', 'Concluiu a trilha de Cloud Security', 200],
+    ['Fundamentos de Segurança', 'security-fundamentals', 'Passou no simulado de fundamentos', 100],
+    ['Analista KQL', 'kql-analyst', 'Dominou consultas KQL', 150],
+    ['Analista SIEM', 'siem-analyst', 'Concluiu o módulo de SIEM', 150],
+    ['Defensor Cibernético', 'cyber-defender', 'Concluiu a trilha SOC Analyst N1', 500],
   ];
   for (const [name, slug, description, xpReward] of badges) {
     await prisma.badge.upsert({
@@ -187,7 +187,7 @@ async function main() {
     short: 'Conceitos essenciais de segurança da informação.', catSlug: 'fundamentos',
     hours: 8, difficulty: 'EASY',
     modules: [
-      { title: 'Conceitos de Segurança', lessons: ['CIA Triad', 'Ameaças e Vulnerabilidades', 'Superfície de Ataque'] },
+      { title: 'Conceitos de Segurança', lessons: ['Tríade CIA', 'Ameaças e Vulnerabilidades', 'Superfície de Ataque'] },
       { title: 'Defesa em Profundidade', lessons: ['Controles de Segurança', 'Modelos de Confiança Zero'] },
     ],
   });
@@ -207,8 +207,8 @@ async function main() {
     short: 'Preparação para a certificação AZ-900.', catSlug: 'cloud',
     hours: 12, difficulty: 'EASY',
     modules: [
-      { title: 'Cloud Concepts', lessons: ['Modelos de Cloud', 'Benefícios da Cloud'] },
-      { title: 'Azure Services', lessons: ['Compute', 'Storage', 'Networking'] },
+      { title: 'Conceitos de Cloud', lessons: ['Modelos de Cloud', 'Benefícios da Cloud'] },
+      { title: 'Serviços do Azure', lessons: ['Computação', 'Armazenamento', 'Rede'] },
     ],
   });
   const cMsSec = await courseWithModules({
@@ -216,7 +216,7 @@ async function main() {
     short: 'Preparação para a certificação SC-900.', catSlug: 'microsoft-security',
     hours: 12, difficulty: 'EASY',
     modules: [
-      { title: 'Security Concepts', lessons: ['Modelo de Responsabilidade Compartilhada', 'Zero Trust'] },
+      { title: 'Conceitos de Segurança', lessons: ['Modelo de Responsabilidade Compartilhada', 'Zero Trust'] },
       { title: 'Microsoft Entra', lessons: ['Identidade', 'Autenticação', 'Acesso Condicional'] },
     ],
   });
@@ -327,9 +327,9 @@ async function main() {
 
   // ---------------------------------------------------------------- Fórum
   const forumSeed = [
-    { title: 'Como reduzir falsos positivos em regra de Brute Force?', category: 'SOC', tags: ['KQL', 'Detection'], body: 'Estou vendo muito FP na regra de 4625. Alguém tem uma boa janela/threshold?' },
+    { title: 'Como reduzir falsos positivos em regra de Brute Force?', category: 'SOC', tags: ['KQL', 'Detecção'], body: 'Estou vendo muito FP na regra de 4625. Alguém tem uma boa janela/threshold?' },
     { title: 'Playbook de Impossible Travel no Sentinel', category: 'Cloud', tags: ['Sentinel', 'Entra ID'], body: 'Compartilhando meu playbook de resposta para Impossible Travel. Feedback?' },
-    { title: 'DFIR: triagem de memória com Volatility', category: 'DFIR', tags: ['Forensics'], body: 'Quais plugins vocês rodam primeiro numa triagem rápida?' },
+    { title: 'DFIR: triagem de memória com Volatility', category: 'DFIR', tags: ['Forense'], body: 'Quais plugins vocês rodam primeiro numa triagem rápida?' },
   ];
   for (const t of forumSeed) {
     const thread = await prisma.forumThread.create({
@@ -432,8 +432,8 @@ const AZ900: { prompt: string; explanation: string; options: [string, boolean][]
 
 const SC900: { prompt: string; explanation: string; options: [string, boolean][] }[] = [
   { prompt: 'Qual princípio do Zero Trust afirma que se deve sempre validar explicitamente cada requisição?',
-    explanation: '"Verify explicitly" exige autenticar e autorizar com base em todos os sinais disponíveis.',
-    options: [['Verify explicitly', true], ['Trust internal network', false], ['Allow by default', false], ['Perimeter-only security', false]] },
+    explanation: '"Verificar explicitamente" exige autenticar e autorizar com base em todos os sinais disponíveis.',
+    options: [['Verificar explicitamente', true], ['Confiar na rede interna', false], ['Permitir por padrão', false], ['Segurança apenas de perímetro', false]] },
   { prompt: 'No Microsoft Entra ID, o que é o Acesso Condicional?',
     explanation: 'Acesso Condicional aplica políticas baseadas em sinais (usuário, risco, dispositivo) para permitir/bloquear acesso.',
     options: [['Políticas que controlam o acesso com base em sinais de risco', true], ['Um antivírus', false], ['Um firewall de rede', false], ['Um serviço de backup', false]] },
@@ -445,7 +445,7 @@ const SC900: { prompt: string; explanation: string; options: [string, boolean][]
     options: [['Governança e compliance de dados', true], ['Provisionar VMs', false], ['Balanceamento de carga', false], ['Renderização gráfica', false]] },
   { prompt: 'Qual conceito descreve conceder o mínimo de privilégios necessários a um usuário?',
     explanation: 'O princípio do menor privilégio (least privilege) limita permissões ao estritamente necessário.',
-    options: [['Least privilege', true], ['Full access', false], ['Shared admin', false], ['Open trust', false]] },
+    options: [['Privilégio mínimo', true], ['Acesso total', false], ['Administração compartilhada', false], ['Confiança aberta', false]] },
   { prompt: 'No Microsoft Defender, qual capacidade foca em detectar e responder a ameaças em endpoints?',
     explanation: 'Defender for Endpoint fornece EDR (detecção e resposta em endpoints).',
     options: [['Defender for Endpoint (EDR)', true], ['Azure DNS', false], ['Blob Storage', false], ['Pricing Calculator', false]] },
