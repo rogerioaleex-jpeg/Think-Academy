@@ -336,9 +336,14 @@ async function main() {
         title: l.title, slug: l.slug, objective: l.objective, category: l.category,
         difficulty: 'MEDIUM', durationMin: 45, xpReward: l.xp, driver: l.driver ?? LabDriver.DOCKER,
         osType: isVm ? l.osType : null,
-        dockerImage: isVm ? null : 'tica/lab-soc-synthetic:latest',
+        // nginx:alpine — placeholder inerte e REAL (existe no Docker Hub);
+        // validado em produção que uma imagem fictícia faz o `docker run`
+        // falhar assim que o Docker está de fato conectado. A validação do
+        // desafio é 100% server-side via hash da flag, não depende do
+        // conteúdo do container.
+        dockerImage: isVm ? null : 'nginx:alpine',
         cpuLimit: l.cpuLimit ?? '1', memoryLimitMb: l.memoryLimitMb ?? 1024,
-        timeoutMin: l.timeoutMin ?? 60, exposedPorts: isVm ? [] : [8080], status: 'PUBLISHED',
+        timeoutMin: l.timeoutMin ?? 60, exposedPorts: isVm ? [] : [80], status: 'PUBLISHED',
         challenges: { create: l.challenges.map((c, i) => ({ title: c.title, points: c.points, flagHash: sha256(c.flag), order: i })) },
         hints: { create: l.hints.map((h, i) => ({ text: h, order: i, costXp: 10 })) },
       },

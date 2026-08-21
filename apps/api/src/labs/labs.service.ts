@@ -7,9 +7,17 @@ import { LabDriverRegistry } from './drivers/lab-driver.registry';
 
 const sha256 = (v: string) => createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
 
-/** Imagem padrão quando o admin não informa uma explicitamente. */
+/**
+ * Imagem padrão quando o admin não informa uma explicitamente. `nginx:alpine`
+ * é só um placeholder inerte (real e sempre disponível no Docker Hub) — a
+ * validação dos desafios de CTF é 100% server-side via hash da flag
+ * (LabsService.submit), não depende do conteúdo do container. Validado em
+ * produção: usar uma imagem fictícia (ex.: `tica/lab-placeholder`) faz o
+ * `docker run` falhar (pull de imagem inexistente) assim que o Docker real
+ * está conectado — antes passava despercebido só porque caía em simulação.
+ */
 const DEFAULT_IMAGE_FOR: Record<LabDriver, string> = {
-  DOCKER: 'tica/lab-placeholder:latest',
+  DOCKER: 'nginx:alpine',
   VM: '', // resolvido pelo próprio VmLabDriver a partir de osType
   KUBERNETES: '',
 };

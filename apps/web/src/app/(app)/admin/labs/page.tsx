@@ -13,7 +13,7 @@ export default function AdminLabsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: '', category: 'SOC', objective: '', difficulty: 'MEDIUM', xpReward: 100,
-    driver: 'DOCKER', dockerImage: 'tica/lab-soc-synthetic:latest',
+    driver: 'DOCKER', dockerImage: 'nginx:alpine',
     osType: 'WINDOWS10', vmVersion: '10',
   });
   const [msg, setMsg] = useState('');
