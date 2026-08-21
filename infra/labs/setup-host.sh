@@ -110,13 +110,24 @@ systemctl daemon-reload
 systemctl restart docker
 
 echo "== 5/6: criando as redes isoladas dos labs =="
+# Criadas via `docker network create` (não via `docker compose up`) — o
+# docker-compose.labs.yml referencia essas redes como `external: true` de
+# propósito, para não criar redes duplicadas prefixadas pelo nome do
+# projeto. Ver comentário no topo do docker-compose.labs.yml.
+docker network inspect tica-labs-isolated >/dev/null 2>&1 || docker network create --internal tica-labs-isolated
+docker network inspect tica-labs-edge >/dev/null 2>&1 || docker network create tica-labs-edge
+
 if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
 else
   COMPOSE="docker compose"
 fi
-$COMPOSE -f "$SCRIPT_DIR/docker-compose.labs.yml" up -d 2>&1 || \
-  echo "[AVISO] Compose não subiu (ok se você ainda não configurou LAB_VM_ACCESS_MODE=traefik-labels)."
+if [ -f "$SCRIPT_DIR/.env" ]; then
+  $COMPOSE -f "$SCRIPT_DIR/docker-compose.labs.yml" --env-file "$SCRIPT_DIR/.env" up -d traefik 2>&1 || \
+    echo "[AVISO] Traefik não subiu — confira LAB_ACME_EMAIL/LAB_ACME_DNS_PROVIDER/CF_DNS_API_TOKEN em .env."
+else
+  echo "[INFO] Sem .env ao lado do compose ainda — Traefik não foi iniciado. Ver README.md antes de subir LAB_VM_ACCESS_MODE=traefik-labels em produção."
+fi
 
 echo "== 6/6: baixando imagens de VM antecipadamente =="
 docker pull dockurr/windows || true

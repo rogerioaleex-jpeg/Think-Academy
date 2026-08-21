@@ -32,18 +32,21 @@
 # ============================================================================
 version: "3.9"
 
+# IMPORTANTE: as duas redes abaixo são `external: true` de propósito. Sem
+# isso, `docker compose up` cria redes NOVAS prefixadas com o nome do projeto
+# (ex.: `root_tica-labs-isolated`) em vez de reaproveitar as redes reais que
+# o VmLabDriver usa (`LAB_NETWORK=tica-labs-isolated`) — validado em produção:
+# o Traefik ficou isolado numa rede errada e nunca alcançava as VMs. Crie as
+# redes reais uma vez, ANTES do primeiro `docker compose up` (o
+# `VmLabDriver.ensureNetwork()` também cria `tica-labs-isolated` sozinho se
+# ela não existir, mas `tica-labs-edge` precisa ser criada manualmente):
+#   docker network create --internal tica-labs-isolated
+#   docker network create tica-labs-edge
 networks:
-  # Rede isolada dos labs — internal:true impede saída para a internet/rede
-  # corporativa. NUNCA remover essa flag. As VMs (Windows/Ubuntu) só ficam
-  # nesta rede.
   tica-labs-isolated:
-    driver: bridge
-    internal: true
-  # Rede "de borda" do Traefik, COM acesso à internet — necessária só para o
-  # próprio Traefik emitir certificados (Let's Encrypt/DNS challenge) e
-  # aceitar conexões externas em :443. As VMs nunca entram nesta rede.
+    external: true
   tica-labs-edge:
-    driver: bridge
+    external: true
 
 volumes:
   traefik-certs:
