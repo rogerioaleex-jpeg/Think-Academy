@@ -14,14 +14,40 @@ Esta pasta descreve a infraestrutura do **host dedicado** onde as VMs completas 
 3. Dimensionamento real: cada VM Windows completa consome ordens de grandeza mais CPU/RAM/disco que um container CTF (defaults: 4 vCPU / 8GB RAM / 32GB de disco por instância). Planeje o host para o número de analistas simultâneos esperado.
 4. Se for usar `LAB_VM_ACCESS_MODE=traefik-labels` (recomendado para produção — evita mixed content, já que `apps/web` roda em HTTPS): um domínio wildcard (`LAB_PUBLIC_DOMAIN`) apontando para este host, e credenciais do provedor de DNS para o desafio ACME do Let's Encrypt.
 
+## Dimensionamento — 5 a 10 analistas simultâneos
+
+Cada VM (Windows ou Ubuntu) usa por padrão 4 vCPU / 8GB RAM (ajustável por lab). Para 5-10 analistas simultâneos, com margem para o próprio host/Traefik:
+
+| Onde | O que procurar | Por quê |
+|---|---|---|
+| **Hetzner Cloud, linha "Dedicated vCPU" (CCX)** | `CCX53` (32 vCPU dedicado / 128GB RAM) para começar, ou `CCX63` (48 vCPU / 192GB) se quiser folga maior | Já vem com virtualização aninhada habilitada (não precisa pedir nada extra); provisiona em minutos via painel/API; fácil de redimensionar depois. **Sem datacenter no Brasil** — o mais próximo costuma ser EUA-Leste, o que soma latência ao noVNC (perceptível, mas ainda usável para tarefas de análise, não para jogos). |
+| **OVHcloud, região São Paulo** | Um plano da linha Advance/Scale (dedicado) ou uma VPS/instância "Dedicated" com specs equivalentes (≥32 vCPU dedicado, ≥128GB RAM, NVMe) | Datacenter em São Paulo — latência bem menor pro público brasileiro da plataforma. Confirme no site da OVH quais planos atuais têm KVM/nested virtualization habilitado antes de comprar, pois os nomes/specs dos planos mudam com frequência. |
+
+Comece pela opção menor (ex.: CCX53) para validar a feature; dá para migrar/redimensionar depois sem reescrever nada — o driver não depende do tamanho do host.
+
 ## Passos
 
-```bash
-./check-host.sh                              # confirma KVM + Docker
-docker compose -f docker-compose.labs.yml up -d   # cria as redes + Traefik (se usar traefik-labels)
-```
+**1. Você mesmo cria o servidor** (isso exige criar conta e pagar — não é algo que eu possa fazer por você):
+   - Crie conta no provedor escolhido, suba um servidor Ubuntu 22.04/24.04 no tamanho da tabela acima, anote o IP público.
+   - Confirme que a instância tem `/dev/kvm` (na Hetzner Cloud "Dedicated vCPU" já vem habilitado por padrão).
 
-Depois, configure na API (Render): `DOCKER_HOST`, `DOCKER_TLS_VERIFY`, `DOCKER_CERT_PATH`, `LAB_VM_ACCESS_MODE`, `LAB_VM_HOST` ou `LAB_PUBLIC_DOMAIN` (ver `.env.example` na raiz do monorepo).
+**2. Rode o script de setup no servidor**, via SSH, como root:
+```bash
+scp infra/labs/setup-host.sh infra/labs/docker-compose.labs.yml root@<ip-do-servidor>:/root/
+ssh root@<ip-do-servidor>
+chmod +x setup-host.sh
+./setup-host.sh <ip-do-servidor>
+```
+Ele instala o Docker, confirma o KVM, gera os certificados TLS mútuos, configura o `dockerd` para escutar em `:2376` só com TLS, cria as redes isoladas e baixa antecipadamente as imagens `dockurr/windows`/`dorowu/ubuntu-desktop-lxde-vnc`. No final, ele imprime os 3 arquivos de certificado (`ca.pem`, `cert.pem`, `key.pem`) que você precisa levar para a API.
+
+**3. Configure a API (Render):**
+   - Suba `ca.pem`, `cert.pem`, `key.pem` como **Secret Files** do serviço `tica-api` (nunca como variável de ambiente em texto).
+   - Defina `DOCKER_HOST=tcp://<ip-do-servidor>:2376`, `DOCKER_TLS_VERIFY=1`, `DOCKER_CERT_PATH=<caminho onde o Render montou os secret files>`.
+   - Se for usar HTTPS por domínio (`traefik-labels`), defina também `LAB_VM_ACCESS_MODE=traefik-labels` e `LAB_PUBLIC_DOMAIN`.
+
+**4. Restrinja o firewall da porta 2376** — nunca deixe aberta pra internet toda. Se você habilitar o add-on de IP de saída estático do Render, libere só esse IP (`ufw allow from <ip-do-render> to any port 2376`); senão, considere um túnel WireGuard entre Render e o host em vez de expor a porta diretamente.
+
+Depois de tudo isso, sem precisar reimplantar nada do código: da próxima vez que um analista clicar em "Iniciar lab" numa VM, o `VmLabDriver` vai detectar Docker+KVM disponíveis e provisionar de verdade.
 
 ## Limpeza de disco
 
