@@ -28,6 +28,12 @@ export class LabsController {
     return this.labs.start(user.id, id);
   }
 
+  @Get('instances/:instanceId')
+  @ApiOperation({ summary: 'Consulta status/acesso de uma instância (usado pelo console para polling).' })
+  getInstance(@Param('instanceId') instanceId: string, @CurrentUser() user: AuthUser) {
+    return this.labs.getInstance(user.id, instanceId);
+  }
+
   @Post('instances/:instanceId/reset')
   @ApiOperation({ summary: 'Reseta (destrói e reprovisiona) a instância.' })
   reset(@Param('instanceId') instanceId: string, @CurrentUser() user: AuthUser) {

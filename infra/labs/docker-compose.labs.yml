@@ -1,0 +1,71 @@
+# ============================================================================
+# Think IT Cyber Academy — "lab plane" (host dedicado de VMs completas)
+#
+# Roda APENAS no servidor dedicado com KVM, fora do Render (que hospeda
+# apenas apps/api e apps/web e não suporta virtualização/containers
+# privilegiados). NÃO faz parte do docker-compose.yml da aplicação principal.
+#
+# Este compose só cria a infraestrutura ESTÁTICA do lab plane:
+#   - a rede isolada `tica-labs-isolated` (internal:true — sem rota de saída
+#     para a internet/rede corporativa, ver docs/01-architecture.md), onde
+#     as VMs (Windows/Ubuntu) vivem;
+#   - a rede `tica-labs-edge` (com internet), só para o Traefik emitir
+#     certificados e aceitar tráfego externo — as VMs nunca entram nela;
+#   - o Traefik (reverse proxy), usado apenas quando
+#     LAB_VM_ACCESS_MODE=traefik-labels, para expor cada VM em
+#     https://lab-<instanceId>.<LAB_PUBLIC_DOMAIN>/ com TLS automático —
+#     necessário porque `apps/web` roda em HTTPS e um iframe apontando para
+#     http://host:porta-aleatória é bloqueado por mixed content.
+#
+# Os containers de cada VM (Windows/Ubuntu) são criados e destruídos
+# DINAMICAMENTE pelo VmLabDriver (apps/api/src/labs/drivers/vm.driver.ts) via
+# `docker run`/`docker rm` — eles não aparecem aqui.
+#
+# Pré-requisitos deste host — ver README.md e check-host.sh:
+#   - Docker instalado e com `dockerd` escutando em TCP com TLS mútuo
+#     (DOCKER_HOST=tcp://<host>:2376, DOCKER_TLS_VERIFY=1), consumido pela
+#     API (que roda no Render) via variáveis de ambiente padrão do Docker CLI.
+#   - /dev/kvm acessível (virtualização de hardware habilitada) — obrigatório
+#     para labs Windows 10; Ubuntu Desktop funciona sem KVM.
+# ============================================================================
+version: "3.9"
+
+networks:
+  # Rede isolada dos labs — internal:true impede saída para a internet/rede
+  # corporativa. NUNCA remover essa flag. As VMs (Windows/Ubuntu) só ficam
+  # nesta rede.
+  tica-labs-isolated:
+    driver: bridge
+    internal: true
+  # Rede "de borda" do Traefik, COM acesso à internet — necessária só para o
+  # próprio Traefik emitir certificados (Let's Encrypt/DNS challenge) e
+  # aceitar conexões externas em :443. As VMs nunca entram nesta rede.
+  tica-labs-edge:
+    driver: bridge
+
+volumes:
+  traefik-certs:
+
+services:
+  # Necessário apenas quando LAB_VM_ACCESS_MODE=traefik-labels.
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=tica-labs-isolated
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=${LAB_ACME_EMAIL:-admin@example.com}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=${LAB_ACME_DNS_PROVIDER:-}
+    ports:
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+    # Duas redes propositalmente: `tica-labs-edge` dá ao Traefik saída à
+    # internet (obrigatória para emitir certificados e para :443 receber
+    # tráfego externo); `tica-labs-isolated` é por onde ele alcança as VMs
+    # como reverse-proxy target. As VMs em si continuam SEM rota de saída.
+    networks: [tica-labs-edge, tica-labs-isolated]

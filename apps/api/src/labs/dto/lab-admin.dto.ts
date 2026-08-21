@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsEnum, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
-import { LabCategory, Difficulty } from '@tica/database';
+import { LabCategory, Difficulty, LabDriver, VmOsType } from '@tica/database';
 
 export class CreateLabDto {
   @ApiProperty() @IsString() @MaxLength(160) title!: string;
@@ -10,6 +10,9 @@ export class CreateLabDto {
   @ApiPropertyOptional({ enum: Difficulty }) @IsOptional() @IsEnum(Difficulty) difficulty?: Difficulty;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(600) durationMin?: number;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) @Max(100000) xpReward?: number;
+  @ApiPropertyOptional({ enum: LabDriver }) @IsOptional() @IsEnum(LabDriver) driver?: LabDriver;
+  @ApiPropertyOptional({ enum: VmOsType, description: 'Só relevante quando driver = VM.' }) @IsOptional() @IsEnum(VmOsType) osType?: VmOsType;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(20) vmVersion?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) dockerImage?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() cpuLimit?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(128) @Max(16384) memoryLimitMb?: number;

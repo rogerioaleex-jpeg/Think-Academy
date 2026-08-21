@@ -11,7 +11,11 @@ const CATEGORIES = ['SOC', 'NETWORK', 'WINDOWS', 'LINUX', 'CLOUD', 'DFIR', 'THRE
 export default function AdminLabsPage() {
   const [labs, setLabs] = useState<any[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [form, setForm] = useState({ title: '', category: 'SOC', objective: '', difficulty: 'MEDIUM', xpReward: 100, dockerImage: 'tica/lab-soc-synthetic:latest' });
+  const [form, setForm] = useState({
+    title: '', category: 'SOC', objective: '', difficulty: 'MEDIUM', xpReward: 100,
+    driver: 'DOCKER', dockerImage: 'tica/lab-soc-synthetic:latest',
+    osType: 'WINDOWS10', vmVersion: '10',
+  });
   const [msg, setMsg] = useState('');
 
   function load() { api<any[]>('/admin/labs').then(setLabs).catch(() => {}); }
@@ -58,10 +62,44 @@ export default function AdminLabsPage() {
             <input type="number" value={form.xpReward} onChange={(e) => setForm({ ...form, xpReward: Number(e.target.value) })}
               className="mt-1 w-full rounded-lg border border-border bg-surface2 px-3 py-2 text-ink" />
           </label>
-          <label>Imagem Docker
-            <input value={form.dockerImage} onChange={(e) => setForm({ ...form, dockerImage: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-border bg-surface2 px-3 py-2 text-ink" />
+          <label>Tipo de ambiente
+            <select value={form.driver} onChange={(e) => setForm({ ...form, driver: e.target.value })}
+              className="mt-1 w-full rounded-lg border border-border bg-surface2 px-3 py-2 text-ink">
+              <option value="DOCKER">Container Docker (CTF)</option>
+              <option value="VM">VM completa (Windows/Ubuntu)</option>
+            </select>
           </label>
+
+          {form.driver === 'DOCKER' && (
+            <label>Imagem Docker
+              <input value={form.dockerImage} onChange={(e) => setForm({ ...form, dockerImage: e.target.value })}
+                className="mt-1 w-full rounded-lg border border-border bg-surface2 px-3 py-2 text-ink" />
+            </label>
+          )}
+
+          {form.driver === 'VM' && (
+            <>
+              <label>Sistema operacional
+                <select value={form.osType} onChange={(e) => setForm({ ...form, osType: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-border bg-surface2 px-3 py-2 text-ink">
+                  <option value="WINDOWS10">Windows 10 (avaliação, 90 dias)</option>
+                  <option value="UBUNTU_DESKTOP">Ubuntu Desktop</option>
+                </select>
+              </label>
+              {form.osType === 'WINDOWS10' && (
+                <p className="md:col-span-2 rounded-lg bg-surface2 px-3 py-2 text-[11px] text-danger">
+                  A ISO de avaliação da Microsoft expira em 90 dias — a instância é sempre efêmera, nunca persistente.
+                  Requer host dedicado com KVM habilitado e recursos maiores (padrão: 4 vCPU / 8GB RAM).
+                </p>
+              )}
+              {form.osType === 'UBUNTU_DESKTOP' && (
+                <p className="md:col-span-2 rounded-lg bg-surface2 px-3 py-2 text-[11px] text-muted">
+                  Desktop Ubuntu completo via noVNC — roda em qualquer host Docker, sem precisar de KVM.
+                </p>
+              )}
+            </>
+          )}
+
           <div className="flex items-end md:col-span-2"><Button type="submit" className="w-full">Criar lab</Button></div>
         </form>
       </Card>

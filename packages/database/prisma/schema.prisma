@@ -122,6 +122,12 @@ enum LabDriver {
   VM
 }
 
+/// Sistema operacional de uma VM completa (só relevante quando driver = VM).
+enum VmOsType {
+  WINDOWS10
+  UBUNTU_DESKTOP
+}
+
 enum XpSource {
   LESSON
   QUIZ
@@ -633,6 +639,8 @@ model Lab {
   xpReward      Int         @default(100)
   driver        LabDriver   @default(DOCKER)
   dockerImage   String?     // imagem base do ambiente (deliberadamente controlado)
+  osType        VmOsType?   // só relevante quando driver = VM (Windows 10 / Ubuntu Desktop)
+  vmVersion     String?     // ex.: "10" — versão do SO passada ao driver de VM
   cpuLimit      String      @default("1")     // ex.: "1", "0.5"
   memoryLimitMb Int         @default(1024)
   timeoutMin    Int         @default(60)      // destruição automática
@@ -698,9 +706,12 @@ model LabInstance {
   userId       String
   status       LabInstanceStatus @default(PROVISIONING)
   driver       LabDriver         @default(DOCKER)
+  osType       VmOsType?         // denormalizado do Lab no momento do start()
   externalRef  String?           // id do container / pod / vm
   accessUrl    String?           // URL de acesso ao ambiente (via gateway)
   networkId    String?           // rede isolada dedicada
+  vncPort      Int?              // porta noVNC publicada (modo direct-port)
+  rdpPort      Int?              // porta RDP publicada — só Windows/direct-port
   startedAt    DateTime          @default(now())
   expiresAt    DateTime?
   stoppedAt    DateTime?
