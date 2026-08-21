@@ -33,8 +33,19 @@ services:
       pnpm install --prod=false &&
       pnpm --filter @tica/database run build &&
       pnpm --filter @tica/database exec prisma db push --skip-generate &&
-      pnpm --filter @tica/api run build
-    startCommand: pnpm --filter @tica/api run start:prod
+      pnpm --filter @tica/api run build &&
+      mkdir -p ./bin &&
+      curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.7.2.tgz -o /tmp/docker-cli.tgz &&
+      tar -xzf /tmp/docker-cli.tgz -C /tmp &&
+      cp /tmp/docker/docker ./bin/docker &&
+      chmod +x ./bin/docker
+    # Runtime "node" do Render não vem com o CLI do Docker — os drivers de
+    # labs (DockerLabDriver/VmLabDriver) chamam `docker` via child_process
+    # contra um daemon REMOTO (DOCKER_HOST) num host dedicado com KVM; ver
+    # infra/labs/README.md. O binário estático baixado no build acima fica
+    # em ./bin/docker; PATH abaixo o coloca na frente sem sobrescrever o
+    # resto do PATH padrão do ambiente.
+    startCommand: PATH="$PWD/bin:$PATH" pnpm --filter @tica/api run start:prod
     envVars:
       - key: NODE_ENV
         value: production
