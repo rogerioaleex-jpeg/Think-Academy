@@ -111,6 +111,15 @@ describe('VmLabDriver', () => {
     expect(result.vncPort).toBeUndefined();
     // Nenhuma chamada a `docker port` deveria ocorrer no modo traefik-labels.
     expect(mockRun).not.toHaveBeenCalledWith(expect.stringContaining('docker port'));
+
+    // Validado em produção: sem shQuote() no label da regra do Traefik,
+    // `/bin/sh -c "<cmd>"` falhava com `Syntax error: "(" unexpected` por
+    // causa do backtick/parênteses de `Host(\`...\`)`. O label precisa
+    // estar entre aspas simples no comando final.
+    const runCall = mockRun.mock.calls.find((c) => String(c[0]).startsWith('docker run -d'));
+    expect(runCall?.[0]).toContain(
+      "--label 'traefik.http.routers.lab-inst-1.rule=Host(`lab-inst-1.labs.example.com`)'",
+    );
   });
 
   it('destroy: ignora refs de simulação sem chamar o Docker', async () => {

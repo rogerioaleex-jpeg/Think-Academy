@@ -5,6 +5,16 @@ import { ILabDriver, LabProvisionSpec, LabProvisionResult } from './lab-driver.i
 
 const run = promisify(exec);
 
+/**
+ * Escapa uma string para uso segura como argumento de shell (POSIX
+ * single-quote escaping). Necessário porque `exec()` roda o comando via
+ * `/bin/sh -c "<string>"` — sem isso, valores com backtick/parênteses (como
+ * a regra `Host(\`...\`)` do Traefik) quebram o shell. Validado em produção:
+ * sem essa proteção, `docker run` falhava com
+ * `/bin/sh: Syntax error: "(" unexpected`.
+ */
+const shQuote = (v: string) => `'${v.replace(/'/g, `'"'"'`)}'`;
+
 type OsType = 'WINDOWS10' | 'UBUNTU_DESKTOP';
 
 interface OsDefaults {
@@ -164,7 +174,7 @@ export class VmLabDriver implements ILabDriver {
       accessMode === 'traefik-labels'
         ? [
             '--label traefik.enable=true',
-            `--label traefik.http.routers.lab-${spec.instanceId}.rule=Host(\`lab-${spec.instanceId}.${process.env.LAB_PUBLIC_DOMAIN}\`)`,
+            `--label ${shQuote(`traefik.http.routers.lab-${spec.instanceId}.rule=Host(\`lab-${spec.instanceId}.${process.env.LAB_PUBLIC_DOMAIN}\`)`)}`,
             `--label traefik.http.routers.lab-${spec.instanceId}.tls.certresolver=letsencrypt`,
             `--label traefik.http.services.lab-${spec.instanceId}.loadbalancer.server.port=${def.webPort}`,
           ]
