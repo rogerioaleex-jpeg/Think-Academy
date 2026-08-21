@@ -27,6 +27,10 @@
 # ============================================================================
 set -euo pipefail
 
+# Resolvido ANTES de qualquer `cd` — usado no passo 5 para achar o compose
+# ao lado deste script, independente do diretório de trabalho atual.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 HOST_ADDR="${1:-}"
 if [ -z "$HOST_ADDR" ]; then
   echo "Uso: $0 <ip-publico-ou-dominio-do-servidor>" >&2
@@ -111,7 +115,7 @@ if command -v docker-compose >/dev/null 2>&1; then
 else
   COMPOSE="docker compose"
 fi
-$COMPOSE -f "$(dirname "$0")/docker-compose.labs.yml" up -d 2>&1 || \
+$COMPOSE -f "$SCRIPT_DIR/docker-compose.labs.yml" up -d 2>&1 || \
   echo "[AVISO] Compose não subiu (ok se você ainda não configurou LAB_VM_ACCESS_MODE=traefik-labels)."
 
 echo "== 6/6: baixando imagens de VM antecipadamente =="

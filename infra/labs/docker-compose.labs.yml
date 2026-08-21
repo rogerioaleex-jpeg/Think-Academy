@@ -11,11 +11,13 @@
 #     as VMs (Windows/Ubuntu) vivem;
 #   - a rede `tica-labs-edge` (com internet), só para o Traefik emitir
 #     certificados e aceitar tráfego externo — as VMs nunca entram nela;
-#   - o Traefik (reverse proxy), usado apenas quando
-#     LAB_VM_ACCESS_MODE=traefik-labels, para expor cada VM em
-#     https://lab-<instanceId>.<LAB_PUBLIC_DOMAIN>/ com TLS automático —
-#     necessário porque `apps/web` roda em HTTPS e um iframe apontando para
-#     http://host:porta-aleatória é bloqueado por mixed content.
+#   - o Traefik (reverse proxy) — modo `traefik-labels`, PADRÃO e único modo
+#     que realmente funciona com a rede isolada: validado na prática que
+#     redes Docker `internal:true` não publicam portas (`docker port` nunca
+#     resolve nada), então sem o Traefik nenhuma VM tem accessUrl de
+#     verdade. Ele expõe cada VM em https://lab-<instanceId>.<LAB_PUBLIC_DOMAIN>/
+#     com TLS automático — também resolve o mixed content, já que `apps/web`
+#     roda em HTTPS e um iframe `http://` seria bloqueado.
 #
 # Os containers de cada VM (Windows/Ubuntu) são criados e destruídos
 # DINAMICAMENTE pelo VmLabDriver (apps/api/src/labs/drivers/vm.driver.ts) via
@@ -47,9 +49,15 @@ volumes:
   traefik-certs:
 
 services:
-  # Necessário apenas quando LAB_VM_ACCESS_MODE=traefik-labels.
+  # Necessário para LAB_VM_ACCESS_MODE=traefik-labels (padrão — ver comentário
+  # no topo do arquivo). IMPORTANTE: mantenha a tag do Traefik razoavelmente
+  # atual — validamos na prática que `traefik:v3.1` falha contra um Docker
+  # Engine recente ("client version 1.24 is too old"), porque o client Docker
+  # embutido no Traefik é fixado no build da imagem. `v3.7` foi validado
+  # funcionando; se seu dockerd for muito mais novo/antigo que isso, teste
+  # antes de fixar em produção.
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.7
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false

@@ -30,10 +30,15 @@ function baseSpec(overrides: Partial<LabProvisionSpec> = {}): LabProvisionSpec {
 
 describe('VmLabDriver', () => {
   let driver: VmLabDriver;
+  const ORIGINAL_ENV = { ...process.env };
 
   beforeEach(() => {
     mockRun.mockReset();
     driver = new VmLabDriver();
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
   });
 
   function mockDocker({ dockerOk, kvmOk }: { dockerOk: boolean; kvmOk: boolean }) {
@@ -75,6 +80,11 @@ describe('VmLabDriver', () => {
   });
 
   it('Ubuntu sem KVM: provisiona normalmente (Ubuntu não precisa de KVM)', async () => {
+    // direct-port é o modo dev-only (rede NÃO internal) — validado ao vivo
+    // que ele não funciona contra a rede isolada real; ver comentário em
+    // isNetworkInternal() no driver. Testado aqui explicitamente porque não
+    // é mais o modo padrão.
+    process.env.LAB_VM_ACCESS_MODE = 'direct-port';
     mockDocker({ dockerOk: true, kvmOk: false });
     const result = await driver.provision(baseSpec({ osType: 'UBUNTU_DESKTOP' }));
     expect(result.externalRef).toBe('abc123containerid');
@@ -82,12 +92,25 @@ describe('VmLabDriver', () => {
     expect(result.vncPort).toBe(54321);
   });
 
-  it('Windows com KVM disponível: provisiona normalmente e publica RDP e VNC', async () => {
+  it('Windows com KVM disponível: provisiona normalmente e publica RDP e VNC (direct-port)', async () => {
+    process.env.LAB_VM_ACCESS_MODE = 'direct-port';
     mockDocker({ dockerOk: true, kvmOk: true });
     const result = await driver.provision(baseSpec({ osType: 'WINDOWS10', vmVersion: '10' }));
     expect(result.externalRef).toBe('abc123containerid');
     expect(result.vncPort).toBe(54321);
     expect(result.rdpPort).toBe(54321); // mock retorna a mesma porta pra qualquer `docker port`
+  });
+
+  it('sem LAB_VM_ACCESS_MODE definido, usa traefik-labels por padrão (único modo que funciona com a rede isolada)', async () => {
+    delete process.env.LAB_VM_ACCESS_MODE;
+    process.env.LAB_PUBLIC_DOMAIN = 'labs.example.com';
+    mockDocker({ dockerOk: true, kvmOk: false });
+    const result = await driver.provision(baseSpec({ osType: 'UBUNTU_DESKTOP' }));
+    expect(result.externalRef).toBe('abc123containerid');
+    expect(result.accessUrl).toBe('https://lab-inst-1.labs.example.com/');
+    expect(result.vncPort).toBeUndefined();
+    // Nenhuma chamada a `docker port` deveria ocorrer no modo traefik-labels.
+    expect(mockRun).not.toHaveBeenCalledWith(expect.stringContaining('docker port'));
   });
 
   it('destroy: ignora refs de simulação sem chamar o Docker', async () => {

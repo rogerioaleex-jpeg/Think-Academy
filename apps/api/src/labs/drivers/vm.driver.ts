@@ -114,6 +114,26 @@ export class VmLabDriver implements ILabDriver {
     }
   }
 
+  /**
+   * IMPORTANTE (validado na prática, não só em teoria): redes Docker
+   * `internal: true` NÃO publicam portas — `-p host:container` nelas não
+   * gera nenhum binding no host, mesmo sem erro aparente. Isso significa que
+   * o modo `direct-port` (baseado em `docker port`) é estruturalmente
+   * incompatível com a rede isolada obrigatória (`tica-labs-isolated`).
+   * Comunicação container-a-container dentro da rede internal funciona
+   * normalmente — por isso o modo `traefik-labels` (Traefik com uma pata
+   * na rede isolada e outra numa rede com saída) é o único jeito real de
+   * expor essas VMs sem abrir mão do isolamento. Ver infra/labs/README.md.
+   */
+  private async isNetworkInternal(network: string): Promise<boolean> {
+    try {
+      const { stdout } = await run(`docker network inspect ${network} --format "{{.Internal}}"`);
+      return stdout.trim() === 'true';
+    } catch {
+      return false;
+    }
+  }
+
   async provision(spec: LabProvisionSpec): Promise<LabProvisionResult> {
     const osType = (spec.osType ?? 'UBUNTU_DESKTOP') as OsType;
     const def = OS_DEFAULTS[osType];
@@ -128,7 +148,18 @@ export class VmLabDriver implements ILabDriver {
     }
     await this.ensureNetwork(spec.network);
 
-    const accessMode = process.env.LAB_VM_ACCESS_MODE ?? 'direct-port';
+    // Padrão é traefik-labels: é o único modo que funciona com a rede
+    // isolada obrigatória (ver isNetworkInternal acima). direct-port só
+    // deve ser usado com uma rede explicitamente NÃO internal, para testes
+    // locais que abrem mão da garantia de isolamento.
+    const accessMode = process.env.LAB_VM_ACCESS_MODE ?? 'traefik-labels';
+    if (accessMode === 'direct-port' && (await this.isNetworkInternal(spec.network))) {
+      this.logger.error(
+        `LAB_VM_ACCESS_MODE=direct-port não funciona com "${spec.network}" (internal:true) — ` +
+          'Docker não publica portas em redes internal. Use LAB_VM_ACCESS_MODE=traefik-labels, ' +
+          'ou aponte LAB_NETWORK para uma rede NÃO internal só para teste local sem garantia de isolamento.',
+      );
+    }
     const traefikLabels =
       accessMode === 'traefik-labels'
         ? [
