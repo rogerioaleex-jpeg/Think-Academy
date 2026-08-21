@@ -67,6 +67,11 @@ services:
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
       - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=${LAB_ACME_DNS_PROVIDER:-}
+    # CF_DNS_API_TOKEN (provider=cloudflare) — NUNCA versionar o valor real;
+    # vem de um .env local no host (fora do git), lido pelo `docker compose`
+    # a partir do mesmo diretório deste arquivo. Ver README.md.
+    environment:
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN:-}
     ports:
       - "443:443"
     volumes:

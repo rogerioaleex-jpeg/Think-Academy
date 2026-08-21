@@ -42,12 +42,23 @@ chmod +x setup-host.sh
 ```
 Ele instala o Docker, confirma o KVM, gera os certificados TLS mútuos, configura o `dockerd` para escutar em `:2376` só com TLS, cria as redes isoladas e baixa antecipadamente as imagens `dockurr/windows`/`dorowu/ubuntu-desktop-lxde-vnc`. No final, ele imprime os 3 arquivos de certificado (`ca.pem`, `cert.pem`, `key.pem`) que você precisa levar para a API.
 
-**3. Configure a API (Render):**
+**3. Configure o desafio DNS do Let's Encrypt (Cloudflare)** — crie `/root/.env` **no servidor** (nunca no git) ao lado do `docker-compose.labs.yml`, com:
+```
+LAB_ACME_EMAIL=seu-email@exemplo.com
+LAB_ACME_DNS_PROVIDER=cloudflare
+CF_DNS_API_TOKEN=<token com permissão Zone:DNS:Edit, restrito à zona do seu domínio>
+```
+Aponte um registro DNS **wildcard** (`A`, nome `*.labs`, conteúdo o IP público do servidor, proxy **DNS only**) na zona do seu domínio, e então:
+```bash
+docker compose -f docker-compose.labs.yml up -d traefik
+```
+
+**4. Configure a API (Render):**
    - Suba `ca.pem`, `cert.pem`, `key.pem` como **Secret Files** do serviço `tica-api` (nunca como variável de ambiente em texto).
    - Defina `DOCKER_HOST=tcp://<ip-do-servidor>:2376`, `DOCKER_TLS_VERIFY=1`, `DOCKER_CERT_PATH=<caminho onde o Render montou os secret files>`.
-   - Defina `LAB_PUBLIC_DOMAIN` com o domínio wildcard apontado pra esse host (`LAB_VM_ACCESS_MODE=traefik-labels` já é o padrão e é obrigatório — ver o quadro de validação acima).
+   - Defina `LAB_PUBLIC_DOMAIN=labs.<seu-domínio>` (`LAB_VM_ACCESS_MODE=traefik-labels` já é o padrão e é obrigatório — ver o quadro de validação acima).
 
-**4. Restrinja o firewall da porta 2376** — nunca deixe aberta pra internet toda. Se você habilitar o add-on de IP de saída estático do Render, libere só esse IP (`ufw allow from <ip-do-render> to any port 2376`); senão, considere um túnel WireGuard entre Render e o host em vez de expor a porta diretamente.
+**5. Restrinja o firewall da porta 2376** — nunca deixe aberta pra internet toda. Se você habilitar o add-on de IP de saída estático do Render, libere só esse IP (`ufw allow from <ip-do-render> to any port 2376`); senão, considere um túnel WireGuard entre Render e o host em vez de expor a porta diretamente.
 
 Depois de tudo isso, sem precisar reimplantar nada do código: da próxima vez que um analista clicar em "Iniciar lab" numa VM, o `VmLabDriver` vai detectar Docker+KVM disponíveis e provisionar de verdade.
 
