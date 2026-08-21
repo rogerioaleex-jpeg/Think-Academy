@@ -11,12 +11,16 @@ export interface LabProvisionSpec {
   exposedPorts: number[];
   network: string; // rede isolada dedicada
   timeoutMin: number;
+  osType?: 'WINDOWS10' | 'UBUNTU_DESKTOP' | null; // usado só pelo driver de VM
+  vmVersion?: string | null;
 }
 
 export interface LabProvisionResult {
   externalRef: string; // id do container/pod/vm
   accessUrl: string | null;
   networkId: string;
+  vncPort?: number; // presente só em modo direct-port
+  rdpPort?: number; // só Windows/direct-port
 }
 
 export interface ILabDriver {

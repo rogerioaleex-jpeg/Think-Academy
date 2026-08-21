@@ -46,6 +46,12 @@ export function validateEnv(): void {
     errors.push(`API_PORT inválida ("${port}").`);
   }
 
+  // Cyber Labs — VMs completas: modo traefik-labels precisa de domínio para
+  // gerar a URL de acesso (não bloqueante — o driver cai em simulação sem isso).
+  if (process.env.LAB_VM_ACCESS_MODE === 'traefik-labels' && !process.env.LAB_PUBLIC_DOMAIN) {
+    warnings.push('LAB_VM_ACCESS_MODE=traefik-labels sem LAB_PUBLIC_DOMAIN — labs de VM completa não terão accessUrl.');
+  }
+
   warnings.forEach((w) => logger.warn(w));
 
   if (errors.length) {

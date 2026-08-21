@@ -38,7 +38,7 @@ Estado por área:
 
 **Fase 5 — Trilhas, competências e certificados.** Learning paths completos, matriz de competências para gestores, dashboard do gestor com gaps e emissão/validação de certificados com QR Code. *(Competency Engine e certificados prontos no backend; faltam as telas de gestor e o QR Code)*
 
-**Fase 6 — Cyber Labs.** Orquestrador de labs, isolamento por rede Docker, desafios, hints e validação; primeiros SOC Labs sintéticos. *(orquestrador e driver Docker prontos; faltam as imagens de lab e o console de acesso no frontend)*
+**Fase 6 — Cyber Labs.** Orquestrador de labs, isolamento por rede Docker, desafios, hints e validação; primeiros SOC Labs sintéticos. *(orquestrador e driver Docker prontos; console noVNC real e driver de VM completa — Windows 10/Ubuntu Desktop — implementados; pendente: host dedicado com KVM em produção e hardening de rede adicional — ex. "Lab Agent"/mTLS em vez de Docker remoto exposto — para operar em escala)*
 
 **Fase 7 — Gestão.** Dashboard do gestor, relatórios e analytics; filtros por equipe, analista, período, trilha e competência.
 

@@ -33,6 +33,15 @@ Checklist de produção: definir um `JWT_SECRET` forte e único; habilitar TLS p
 
 O plano de labs **não** compartilha rede com a aplicação. Em Kubernetes, cada lab roda em namespace dedicado com `NetworkPolicy` de negação padrão (deny-all) e sem egress para redes internas — o equivalente à rede `--internal` do Docker em dev. O driver correspondente implementa a mesma interface `ILabDriver`. O job de limpeza de instâncias expiradas deve rodar como CronJob. Nunca exponha os labs diretamente à internet ou à rede corporativa; o acesso do aluno passa por um gateway controlado.
 
+### VMs completas (Windows 10 / Ubuntu) — host dedicado com KVM
+
+Diferente dos containers CTF (que já rodam bem em qualquer host Docker), as VMs completas provisionadas pelo `VmLabDriver` (Windows 10 via QEMU, Ubuntu Desktop) exigem um **host dedicado com virtualização de hardware habilitada** (`/dev/kvm` acessível) — o Render, que hospeda `apps/api`/`apps/web`, não suporta isso. A configuração recomendada:
+
+- Um servidor Linux dedicado (fora do Render) com KVM, Docker instalado e `dockerd` exposto em TCP com **TLS mútuo** (`--tlsverify`) — a API se conecta a ele via `DOCKER_HOST=tcp://<host>:2376`, `DOCKER_TLS_VERIFY`, `DOCKER_CERT_PATH`, reaproveitando 100% do padrão de driver já existente (sem microsserviço adicional).
+- A rede `tica-labs-isolated` (`internal: true`) hospeda só as VMs, sem rota de saída. Ver `infra/labs/` para o compose declarativo desse host e `docs/01-architecture.md` para a diferença de postura de segurança do `VmLabDriver` em relação ao driver Docker.
+- Expor o console noVNC de cada VM exige `LAB_VM_ACCESS_MODE=traefik-labels` (padrão) — validamos ao vivo que redes Docker `internal: true` simplesmente não publicam portas, então esse é o único modo capaz de gerar um `accessUrl` real sem abrir mão do isolamento, além de resolver o mixed content (já que `apps/web` roda em HTTPS e um iframe `http://` seria bloqueado). Um Traefik nesse host, com uma pata na rede isolada e outra numa rede com saída, um domínio wildcard (`LAB_PUBLIC_DOMAIN`) e certificado Let's Encrypt automático, expõe cada instância em `https://lab-<instanceId>.<LAB_PUBLIC_DOMAIN>/`.
+- Windows 10 usa a ISO de avaliação oficial da Microsoft (trial de 90 dias) — a instância é sempre efêmera; nunca ofereça uma VM Windows "permanente" para um aluno.
+
 ## Migrations
 
 As migrations são versionadas pelo Prisma. Em desenvolvimento, `prisma migrate dev` cria e aplica; em produção, `prisma migrate deploy` aplica o que já foi versionado. O `prisma generate` roda no build da imagem da API para gerar o client compatível com o ambiente de execução.

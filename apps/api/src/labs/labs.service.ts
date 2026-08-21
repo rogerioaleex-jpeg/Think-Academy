@@ -1,10 +1,18 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
+import { LabDriver } from '@tica/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationService } from '../gamification/gamification.service';
-import { DockerLabDriver } from './drivers/docker.driver';
+import { LabDriverRegistry } from './drivers/lab-driver.registry';
 
 const sha256 = (v: string) => createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
+
+/** Imagem padrão quando o admin não informa uma explicitamente. */
+const DEFAULT_IMAGE_FOR: Record<LabDriver, string> = {
+  DOCKER: 'tica/lab-placeholder:latest',
+  VM: '', // resolvido pelo próprio VmLabDriver a partir de osType
+  KUBERNETES: '',
+};
 
 @Injectable()
 export class LabsService {
@@ -14,22 +22,28 @@ export class LabsService {
   constructor(
     private prisma: PrismaService,
     private gamification: GamificationService,
-    private docker: DockerLabDriver,
+    private drivers: LabDriverRegistry,
   ) {}
 
   // ---------------------------------------------------------------- Admin
   createLab(data: {
     title: string; slug: string; category: any; objective?: string; difficulty?: any;
-    durationMin?: number; xpReward?: number; dockerImage?: string; cpuLimit?: string;
-    memoryLimitMb?: number; timeoutMin?: number; exposedPorts?: number[];
+    durationMin?: number; xpReward?: number; driver?: LabDriver; osType?: any; vmVersion?: string;
+    dockerImage?: string; cpuLimit?: string; memoryLimitMb?: number; timeoutMin?: number; exposedPorts?: number[];
   }) {
+    const driver = data.driver ?? 'DOCKER';
+    const isVm = driver === 'VM';
     return this.prisma.lab.create({
       data: {
         title: data.title, slug: data.slug, category: data.category, objective: data.objective,
         difficulty: data.difficulty ?? 'MEDIUM', durationMin: data.durationMin ?? 30,
-        xpReward: data.xpReward ?? 100, driver: 'DOCKER', dockerImage: data.dockerImage,
-        cpuLimit: data.cpuLimit ?? '1', memoryLimitMb: data.memoryLimitMb ?? 1024,
-        timeoutMin: data.timeoutMin ?? 60, exposedPorts: data.exposedPorts ?? [], status: 'PUBLISHED',
+        xpReward: data.xpReward ?? 100, driver, dockerImage: data.dockerImage,
+        osType: isVm ? data.osType : null, vmVersion: isVm ? data.vmVersion : null,
+        // VM completa exige recursos e prazo bem maiores que um container CTF.
+        cpuLimit: data.cpuLimit ?? (isVm ? '4' : '1'),
+        memoryLimitMb: data.memoryLimitMb ?? (isVm ? 8192 : 1024),
+        timeoutMin: data.timeoutMin ?? (isVm ? 120 : 60),
+        exposedPorts: data.exposedPorts ?? [], status: 'PUBLISHED',
       },
     });
   }
@@ -102,18 +116,24 @@ export class LabsService {
     });
 
     try {
-      const result = await this.docker.provision({
+      const driver = this.drivers.resolve(lab.driver);
+      const result = await driver.provision({
         instanceId: instance.id,
-        image: lab.dockerImage ?? 'tica/lab-placeholder:latest',
+        image: lab.dockerImage ?? DEFAULT_IMAGE_FOR[lab.driver],
         cpuLimit: lab.cpuLimit,
         memoryLimitMb: lab.memoryLimitMb,
         exposedPorts: lab.exposedPorts,
         network: this.network,
         timeoutMin: lab.timeoutMin,
+        osType: lab.osType,
+        vmVersion: lab.vmVersion,
       });
       return this.prisma.labInstance.update({
         where: { id: instance.id },
-        data: { status: 'RUNNING', externalRef: result.externalRef, accessUrl: result.accessUrl, networkId: result.networkId },
+        data: {
+          status: 'RUNNING', externalRef: result.externalRef, accessUrl: result.accessUrl,
+          networkId: result.networkId, osType: lab.osType, vncPort: result.vncPort, rdpPort: result.rdpPort,
+        },
       });
     } catch (e) {
       this.logger.error(`Falha ao provisionar lab: ${(e as Error).message}`);
@@ -126,11 +146,32 @@ export class LabsService {
     const instance = await this.prisma.labInstance.findUnique({ where: { id: instanceId } });
     if (!instance) throw new NotFoundException('Instância não encontrada.');
     if (instance.userId !== userId) throw new ForbiddenException();
-    if (instance.externalRef) await this.docker.destroy(instance.externalRef);
+    if (instance.externalRef) await this.drivers.resolve(instance.driver).destroy(instance.externalRef);
     return this.prisma.labInstance.update({
       where: { id: instanceId },
       data: { status: 'DESTROYED', stoppedAt: new Date() },
     });
+  }
+
+  /** Consulta o estado de uma instância (usado pelo console para polling). */
+  async getInstance(userId: string, instanceId: string) {
+    const instance = await this.prisma.labInstance.findUnique({
+      where: { id: instanceId },
+      include: {
+        lab: {
+          select: {
+            id: true, title: true, slug: true, category: true, difficulty: true,
+            objective: true, xpReward: true, driver: true,
+            challenges: { orderBy: { order: 'asc' }, select: { id: true, title: true, description: true, points: true, order: true } },
+            hints: { orderBy: { order: 'asc' }, select: { id: true, order: true, costXp: true } },
+          },
+        },
+        submissions: { where: { correct: true }, select: { challengeId: true } },
+      },
+    });
+    if (!instance) throw new NotFoundException('Instância não encontrada.');
+    if (instance.userId !== userId) throw new ForbiddenException();
+    return instance;
   }
 
   /** Reset = destrói e reprovisiona. */
@@ -184,7 +225,7 @@ export class LabsService {
       where: { status: { in: ['PROVISIONING', 'RUNNING'] }, expiresAt: { lt: new Date() } },
     });
     for (const inst of expired) {
-      if (inst.externalRef) await this.docker.destroy(inst.externalRef);
+      if (inst.externalRef) await this.drivers.resolve(inst.driver).destroy(inst.externalRef);
       await this.prisma.labInstance.update({
         where: { id: inst.id },
         data: { status: 'EXPIRED', stoppedAt: new Date() },

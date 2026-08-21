@@ -3,12 +3,13 @@
 // SEED — Think IT Cyber Academy
 // Cria: papéis + permissões, usuários (admin/manager/aluno), categorias,
 // competências, badges, cursos/módulos/aulas, trilhas, simulados com questões
-// ORIGINAIS de treinamento (AZ-900, SC-900, Security+) e 3 labs sintéticos.
+// ORIGINAIS de treinamento (AZ-900, SC-900, Security+) e labs sintéticos
+// (incluindo uma VM completa de exemplo).
 //
 // As questões são de treinamento, escritas com base nos OBJETIVOS PÚBLICOS de
 // cada certificação. Não são dumps nem bancos proprietários.
 // =============================================================================
-import { PrismaClient, RoleName, Difficulty, ExamKind, LabCategory } from '.prisma/client';
+import { PrismaClient, RoleName, Difficulty, ExamKind, LabCategory, LabDriver, VmOsType } from '.prisma/client';
 import { createHash } from 'crypto';
 import bcrypt from 'bcryptjs';
 
@@ -280,7 +281,12 @@ async function main() {
   });
 
   // ---------------------------------------------------------------- Labs
-  const labs = [
+  const labs: Array<{
+    title: string; slug: string; objective: string; category: LabCategory; xp: number;
+    driver?: LabDriver; osType?: VmOsType; cpuLimit?: string; memoryLimitMb?: number; timeoutMin?: number;
+    challenges: { title: string; flag: string; points: number }[];
+    hints: string[];
+  }> = [
     {
       title: 'SOC Investigation — Brute Force', slug: 'soc-investigation-brute-force',
       objective: 'Investigar múltiplas falhas de autenticação em dados sintéticos e classificar o incidente.',
@@ -310,15 +316,29 @@ async function main() {
       challenges: [{ title: 'Contar sign-ins com falha', flag: '17', points: 100 }],
       hints: ['Use where ResultType != 0 | count.'],
     },
+    {
+      // VM completa (não CTF): desktop Ubuntu real via noVNC, provisionado
+      // pelo VmLabDriver. Sem KVM configurado, a instância cai em modo
+      // simulação — ver apps/api/src/labs/drivers/vm.driver.ts.
+      title: 'Ubuntu Desktop — Recon Practice', slug: 'ubuntu-desktop-recon-practice',
+      objective: 'Praticar enumeração e busca de vulnerabilidades num desktop Ubuntu completo, isolado.',
+      category: LabCategory.LINUX, xp: 150,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 90,
+      challenges: [{ title: 'Identificar a versão do kernel', flag: 'uname -r', points: 50 }],
+      hints: ['Abra um terminal dentro do desktop e rode "uname -a".'],
+    },
   ];
   for (const l of labs) {
+    const isVm = l.driver === LabDriver.VM;
     await prisma.lab.upsert({
       where: { slug: l.slug }, update: {},
       create: {
         title: l.title, slug: l.slug, objective: l.objective, category: l.category,
-        difficulty: 'MEDIUM', durationMin: 45, xpReward: l.xp, driver: 'DOCKER',
-        dockerImage: 'tica/lab-soc-synthetic:latest', cpuLimit: '1', memoryLimitMb: 1024,
-        timeoutMin: 60, exposedPorts: [8080], status: 'PUBLISHED',
+        difficulty: 'MEDIUM', durationMin: 45, xpReward: l.xp, driver: l.driver ?? LabDriver.DOCKER,
+        osType: isVm ? l.osType : null,
+        dockerImage: isVm ? null : 'tica/lab-soc-synthetic:latest',
+        cpuLimit: l.cpuLimit ?? '1', memoryLimitMb: l.memoryLimitMb ?? 1024,
+        timeoutMin: l.timeoutMin ?? 60, exposedPorts: isVm ? [] : [8080], status: 'PUBLISHED',
         challenges: { create: l.challenges.map((c, i) => ({ title: c.title, points: c.points, flagHash: sha256(c.flag), order: i })) },
         hints: { create: l.hints.map((h, i) => ({ text: h, order: i, costXp: 10 })) },
       },

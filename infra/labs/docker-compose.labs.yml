@@ -1,0 +1,79 @@
+# ============================================================================
+# Think IT Cyber Academy — "lab plane" (host dedicado de VMs completas)
+#
+# Roda APENAS no servidor dedicado com KVM, fora do Render (que hospeda
+# apenas apps/api e apps/web e não suporta virtualização/containers
+# privilegiados). NÃO faz parte do docker-compose.yml da aplicação principal.
+#
+# Este compose só cria a infraestrutura ESTÁTICA do lab plane:
+#   - a rede isolada `tica-labs-isolated` (internal:true — sem rota de saída
+#     para a internet/rede corporativa, ver docs/01-architecture.md), onde
+#     as VMs (Windows/Ubuntu) vivem;
+#   - a rede `tica-labs-edge` (com internet), só para o Traefik emitir
+#     certificados e aceitar tráfego externo — as VMs nunca entram nela;
+#   - o Traefik (reverse proxy) — modo `traefik-labels`, PADRÃO e único modo
+#     que realmente funciona com a rede isolada: validado na prática que
+#     redes Docker `internal:true` não publicam portas (`docker port` nunca
+#     resolve nada), então sem o Traefik nenhuma VM tem accessUrl de
+#     verdade. Ele expõe cada VM em https://lab-<instanceId>.<LAB_PUBLIC_DOMAIN>/
+#     com TLS automático — também resolve o mixed content, já que `apps/web`
+#     roda em HTTPS e um iframe `http://` seria bloqueado.
+#
+# Os containers de cada VM (Windows/Ubuntu) são criados e destruídos
+# DINAMICAMENTE pelo VmLabDriver (apps/api/src/labs/drivers/vm.driver.ts) via
+# `docker run`/`docker rm` — eles não aparecem aqui.
+#
+# Pré-requisitos deste host — ver README.md e check-host.sh:
+#   - Docker instalado e com `dockerd` escutando em TCP com TLS mútuo
+#     (DOCKER_HOST=tcp://<host>:2376, DOCKER_TLS_VERIFY=1), consumido pela
+#     API (que roda no Render) via variáveis de ambiente padrão do Docker CLI.
+#   - /dev/kvm acessível (virtualização de hardware habilitada) — obrigatório
+#     para labs Windows 10; Ubuntu Desktop funciona sem KVM.
+# ============================================================================
+version: "3.9"
+
+networks:
+  # Rede isolada dos labs — internal:true impede saída para a internet/rede
+  # corporativa. NUNCA remover essa flag. As VMs (Windows/Ubuntu) só ficam
+  # nesta rede.
+  tica-labs-isolated:
+    driver: bridge
+    internal: true
+  # Rede "de borda" do Traefik, COM acesso à internet — necessária só para o
+  # próprio Traefik emitir certificados (Let's Encrypt/DNS challenge) e
+  # aceitar conexões externas em :443. As VMs nunca entram nesta rede.
+  tica-labs-edge:
+    driver: bridge
+
+volumes:
+  traefik-certs:
+
+services:
+  # Necessário para LAB_VM_ACCESS_MODE=traefik-labels (padrão — ver comentário
+  # no topo do arquivo). IMPORTANTE: mantenha a tag do Traefik razoavelmente
+  # atual — validamos na prática que `traefik:v3.1` falha contra um Docker
+  # Engine recente ("client version 1.24 is too old"), porque o client Docker
+  # embutido no Traefik é fixado no build da imagem. `v3.7` foi validado
+  # funcionando; se seu dockerd for muito mais novo/antigo que isso, teste
+  # antes de fixar em produção.
+  traefik:
+    image: traefik:v3.7
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=tica-labs-isolated
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=${LAB_ACME_EMAIL:-admin@example.com}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=${LAB_ACME_DNS_PROVIDER:-}
+    ports:
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+    # Duas redes propositalmente: `tica-labs-edge` dá ao Traefik saída à
+    # internet (obrigatória para emitir certificados e para :443 receber
+    # tráfego externo); `tica-labs-isolated` é por onde ele alcança as VMs
+    # como reverse-proxy target. As VMs em si continuam SEM rota de saída.
+    networks: [tica-labs-edge, tica-labs-isolated]
