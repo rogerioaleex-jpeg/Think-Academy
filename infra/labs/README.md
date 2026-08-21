@@ -58,9 +58,11 @@ docker compose -f docker-compose.labs.yml up -d traefik
    - Defina `DOCKER_HOST=tcp://<ip-do-servidor>:2376`, `DOCKER_TLS_VERIFY=1`, `DOCKER_CERT_PATH=<caminho onde o Render montou os secret files>`.
    - Defina `LAB_PUBLIC_DOMAIN=labs.<seu-domínio>` (`LAB_VM_ACCESS_MODE=traefik-labels` já é o padrão e é obrigatório — ver o quadro de validação acima).
 
-**5. Restrinja o firewall da porta 2376** — nunca deixe aberta pra internet toda. Se você habilitar o add-on de IP de saída estático do Render, libere só esse IP (`ufw allow from <ip-do-render> to any port 2376`); senão, considere um túnel WireGuard entre Render e o host em vez de expor a porta diretamente.
+**5. Abra as portas necessárias no firewall do host** (NSG na Azure, Security Group na AWS, etc.):
+   - `443/tcp` — obrigatória e pública, é por onde o Traefik serve o HTTPS de cada VM pros alunos.
+   - `2376/tcp` — restrinja se possível (nunca deixe aberta "por padrão" sem pensar). Se você habilitar o add-on de IP de saída estático do Render, libere só esse IP (`ufw allow from <ip-do-render> to any port 2376`); senão, considere um túnel WireGuard entre Render e o host em vez de expor a porta diretamente. Protegida por TLS mútuo mesmo assim — só quem tem o certificado-cliente gerado no passo 2 consegue autenticar.
 
-Depois de tudo isso, sem precisar reimplantar nada do código: da próxima vez que um analista clicar em "Iniciar lab" numa VM, o `VmLabDriver` vai detectar Docker+KVM disponíveis e provisionar de verdade.
+Depois de tudo isso, sem precisar reimplantar nada do código: da próxima vez que um analista clicar em "Iniciar lab" numa VM, o `VmLabDriver` vai detectar Docker+KVM disponíveis e provisionar de verdade — **validado em produção**: domínio real (Cloudflare), certificado Let's Encrypt emitido automaticamente pelo Traefik, HTTPS respondendo 200 no `accessUrl` gerado pela própria plataforma.
 
 ## Limpeza de disco
 
