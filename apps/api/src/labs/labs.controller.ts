@@ -34,6 +34,12 @@ export class LabsController {
     return this.labs.getInstance(user.id, instanceId);
   }
 
+  @Get('instances/:instanceId/rdp-token')
+  @ApiOperation({ summary: 'Gera uma URL de console RDP (Guacamole) com token de sessão fresco.' })
+  getRdpAccessUrl(@Param('instanceId') instanceId: string, @CurrentUser() user: AuthUser) {
+    return this.labs.getRdpAccessUrl(user.id, instanceId);
+  }
+
   @Post('instances/:instanceId/reset')
   @ApiOperation({ summary: 'Reseta (destrói e reprovisiona) a instância.' })
   reset(@Param('instanceId') instanceId: string, @CurrentUser() user: AuthUser) {

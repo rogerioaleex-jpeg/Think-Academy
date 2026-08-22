@@ -29,6 +29,16 @@
 # DINAMICAMENTE pelo VmLabDriver (apps/api/src/labs/drivers/vm.driver.ts) via
 # `docker run`/`docker rm` — eles não aparecem aqui.
 #
+#   - guacamole-db/guacd/guacamole: gateway RDP-via-navegador (Apache
+#     Guacamole), usado por labs com osType terminando em `_RDP` (ex.:
+#     UBUNTU_DESKTOP_RDP). RDP não é HTTP, então não pode ser roteado por
+#     Host() no Traefik como o noVNC — o Guacamole faz esse papel,
+#     mantendo a VM alvo só na rede isolada (guacd alcança o container pelo
+#     IP interno). A API cria/destrói uma CONEXÃO por instância via a API
+#     REST do Guacamole (ver guacamole.client.ts) — os 3 serviços abaixo são
+#     infraestrutura persistente, não por-instância. Setup de primeira vez
+#     (schema do banco + troca da senha padrão) documentado no README.md.
+#
 # Pré-requisitos deste host — ver README.md e check-host.sh:
 #   - Docker instalado e com `dockerd` escutando em TCP com TLS mútuo
 #     (DOCKER_HOST=tcp://<host>:2376, DOCKER_TLS_VERIFY=1), consumido pela
@@ -56,6 +66,7 @@ networks:
 
 volumes:
   traefik-certs:
+  guac-db-data:
 
 services:
   # Necessário para LAB_VM_ACCESS_MODE=traefik-labels (padrão — ver comentário
@@ -99,3 +110,36 @@ services:
     # tráfego externo); `tica-labs-isolated` é por onde ele alcança as VMs
     # como reverse-proxy target. As VMs em si continuam SEM rota de saída.
     networks: [tica-labs-edge, tica-labs-isolated]
+
+  # ---- Gateway RDP-via-navegador (labs com osType *_RDP) ----
+  guacamole-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=guacamole_db
+      - POSTGRES_USER=guacamole_user
+      - POSTGRES_PASSWORD=${GUAC_DB_PASSWORD:?defina GUAC_DB_PASSWORD no .env}
+    volumes:
+      - guac-db-data:/var/lib/postgresql/data
+    networks: [tica-labs-isolated] # não precisa de internet; só guacamole fala com ele
+
+  guacd:
+    image: guacamole/guacd:latest
+    networks: [tica-labs-isolated] # precisa alcançar as VMs (RDP) pelo IP interno
+
+  guacamole:
+    image: guacamole/guacamole:latest
+    depends_on: [guacamole-db, guacd]
+    environment:
+      - GUACD_HOSTNAME=guacd
+      - POSTGRESQL_HOSTNAME=guacamole-db
+      - POSTGRESQL_DATABASE=guacamole_db
+      - POSTGRESQL_USER=guacamole_user
+      - POSTGRESQL_PASSWORD=${GUAC_DB_PASSWORD:?defina GUAC_DB_PASSWORD no .env}
+    # Exposto via Traefik num subdomínio FIXO (não por-instância — é a API
+    # que cria/destrói CONEXÕES dentro dele, não o serviço em si). Reaproveita
+    # o mesmo certificado wildcard do Traefik (ver comentário no topo).
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.guacamole.rule=Host(`guac.${LAB_PUBLIC_DOMAIN:-labs.example.com}`)
+      - traefik.http.services.guacamole.loadbalancer.server.port=8080
+    networks: [tica-labs-isolated]

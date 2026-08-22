@@ -83,7 +83,8 @@ export default function AdminLabsPage() {
                 <select value={form.osType} onChange={(e) => setForm({ ...form, osType: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-border bg-surface2 px-3 py-2 text-ink">
                   <option value="WINDOWS10">Windows 10 (avaliação, 90 dias)</option>
-                  <option value="UBUNTU_DESKTOP">Ubuntu Desktop</option>
+                  <option value="UBUNTU_DESKTOP">Ubuntu Desktop (VNC)</option>
+                  <option value="UBUNTU_DESKTOP_RDP">Ubuntu Desktop (RDP via Guacamole)</option>
                 </select>
               </label>
               {form.osType === 'WINDOWS10' && (
@@ -95,6 +96,13 @@ export default function AdminLabsPage() {
               {form.osType === 'UBUNTU_DESKTOP' && (
                 <p className="md:col-span-2 rounded-lg bg-surface2 px-3 py-2 text-[11px] text-muted">
                   Desktop Ubuntu completo via noVNC — roda em qualquer host Docker, sem precisar de KVM.
+                </p>
+              )}
+              {form.osType === 'UBUNTU_DESKTOP_RDP' && (
+                <p className="md:col-span-2 rounded-lg bg-surface2 px-3 py-2 text-[11px] text-muted">
+                  Mesmo desktop Ubuntu, acessado via RDP através de um gateway Apache Guacamole (mantém a VM na
+                  rede isolada — RDP não pode ser proxiado em HTTP puro). Requer o Guacamole configurado no host
+                  dedicado (ver infra/labs/README.md).
                 </p>
               )}
             </>

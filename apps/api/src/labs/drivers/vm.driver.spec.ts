@@ -30,11 +30,16 @@ function baseSpec(overrides: Partial<LabProvisionSpec> = {}): LabProvisionSpec {
 
 describe('VmLabDriver', () => {
   let driver: VmLabDriver;
+  let guacamole: { createRdpConnection: jest.Mock; deleteConnection: jest.Mock };
   const ORIGINAL_ENV = { ...process.env };
 
   beforeEach(() => {
     mockRun.mockReset();
-    driver = new VmLabDriver();
+    guacamole = {
+      createRdpConnection: jest.fn().mockResolvedValue('guac-conn-1'),
+      deleteConnection: jest.fn().mockResolvedValue(undefined),
+    };
+    driver = new VmLabDriver(guacamole as any);
   });
 
   afterEach(() => {
@@ -60,6 +65,12 @@ describe('VmLabDriver', () => {
       }
       if (cmd.startsWith('docker port')) {
         return Promise.resolve({ stdout: '0.0.0.0:54321' });
+      }
+      if (cmd.startsWith('docker inspect')) {
+        return Promise.resolve({ stdout: '172.18.0.5' }); // IP interno usado por containerIp()
+      }
+      if (cmd.startsWith('docker exec')) {
+        return Promise.resolve({ stdout: '' }); // ex.: chpasswd
       }
       return Promise.resolve({ stdout: '' });
     });
@@ -120,6 +131,26 @@ describe('VmLabDriver', () => {
     expect(runCall?.[0]).toContain(
       "--label 'traefik.http.routers.lab-inst-1.rule=Host(`lab-inst-1.labs.example.com`)'",
     );
+  });
+
+  it('UBUNTU_DESKTOP_RDP: cria a conexão no Guacamole e não usa Traefik/accessUrl direto', async () => {
+    mockDocker({ dockerOk: true, kvmOk: false });
+    const result = await driver.provision(baseSpec({ osType: 'UBUNTU_DESKTOP_RDP' }));
+    expect(result.externalRef).toBe('abc123containerid');
+    expect(result.accessUrl).toBeNull(); // URL de verdade é gerada sob demanda (token fresco) — ver GuacamoleClient
+    expect(result.guacConnectionId).toBe('guac-conn-1');
+    expect(guacamole.createRdpConnection).toHaveBeenCalledWith(
+      expect.objectContaining({ hostname: '172.18.0.5', port: 3389, username: 'root' }),
+    );
+    // Nenhum label de Traefik deveria ter sido usado para RDP (não é HTTP).
+    const runCall = mockRun.mock.calls.find((c) => String(c[0]).startsWith('docker run -d'));
+    expect(runCall?.[0]).not.toContain('traefik.enable');
+  });
+
+  it('destroy: remove a conexão do Guacamole quando guacConnectionId é informado', async () => {
+    mockDocker({ dockerOk: true, kvmOk: true });
+    await driver.destroy('abc123containerid', { guacConnectionId: 'guac-conn-1' });
+    expect(guacamole.deleteConnection).toHaveBeenCalledWith('guac-conn-1');
   });
 
   it('destroy: ignora refs de simulação sem chamar o Docker', async () => {

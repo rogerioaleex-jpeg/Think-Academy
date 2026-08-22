@@ -69,6 +69,37 @@ docker compose -f docker-compose.labs.yml up -d traefik
 
 Depois de tudo isso, sem precisar reimplantar nada do código: da próxima vez que um analista clicar em "Iniciar lab" numa VM, o `VmLabDriver` vai detectar Docker+KVM disponíveis e provisionar de verdade — **validado em produção**: domínio real (Cloudflare), certificado Let's Encrypt emitido automaticamente pelo Traefik, HTTPS respondendo 200 no `accessUrl` gerado pela própria plataforma.
 
+## RDP via navegador (Apache Guacamole) — labs com osType `*_RDP`
+
+Labs como `UBUNTU_DESKTOP_RDP` acessam a VM por **RDP** (não noVNC) — mas RDP não é HTTP, então o Traefik não consegue rotear por `Host()` como faz com o noVNC. A solução é um gateway **Apache Guacamole**, mantendo a VM na rede isolada (Guacamole alcança o container pelo IP interno; o aluno só fala HTTP/WebSocket com o Guacamole).
+
+**Setup de primeira vez** (depois do passo 2 acima já ter criado as redes):
+
+```bash
+# Gere uma senha forte pro Postgres do Guacamole e salve em /root/.env (ao
+# lado das outras variáveis já configuradas):
+echo "GUAC_DB_PASSWORD=$(openssl rand -base64 24)" >> /root/.env
+
+docker compose -f docker-compose.labs.yml up -d guacamole-db guacd guacamole
+
+# Aplica o schema (cria o usuário admin padrão guacadmin/guacadmin) — só
+# precisa rodar UMA VEZ (o volume guac-db-data persiste depois disso):
+docker run --rm guacamole/guacamole /opt/guacamole/bin/initdb.sh --postgresql > /root/guac-initdb.sql
+docker exec -i tica-labs-guacamole-db-1 psql -U guacamole_user -d guacamole_db < /root/guac-initdb.sql
+```
+
+Depois, **troque a senha padrão do `guacadmin`** (nunca deixe `guacadmin/guacadmin` em produção):
+
+```bash
+TOKEN=$(curl -sk -X POST "https://guac.<LAB_PUBLIC_DOMAIN>/guacamole/api/tokens" \
+  -d "username=guacadmin&password=guacadmin" | python3 -c "import sys,json;print(json.load(sys.stdin)['authToken'])")
+curl -sk -X PUT "https://guac.<LAB_PUBLIC_DOMAIN>/guacamole/api/session/data/postgresql/users/guacadmin/password?token=$TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"oldPassword":"guacadmin","newPassword":"<senha-forte-nova>"}'
+```
+
+Por fim, configure na API (Render): `GUACAMOLE_URL=https://guac.<LAB_PUBLIC_DOMAIN>/guacamole`, `GUACAMOLE_ADMIN_USER=guacadmin`, `GUACAMOLE_ADMIN_PASSWORD=<a senha nova>`. A partir daí, o `VmLabDriver` cria/destrói a conexão RDP de cada instância automaticamente via a API REST do Guacamole (ver `apps/api/src/labs/drivers/guacamole.client.ts`) — **validado em produção**: RDP real via xrdp, sessão visível no navegador através do Guacamole, mesmo certificado wildcard do Traefik reaproveitado (`guac.<LAB_PUBLIC_DOMAIN>` cai dentro do `*.<LAB_PUBLIC_DOMAIN>`).
+
 ## Limpeza de disco
 
 Discos de VM (`.qcow2`) são grandes. O `VmLabDriver.destroy()` já remove o volume nomeado da instância junto com o container, e o job `cleanupExpired()` (cron a cada minuto, `apps/api/src/jobs/jobs.service.ts`) chama esse `destroy()` para instâncias expiradas — mas vale rodar periodicamente `docker system prune --volumes` neste host como rede de segurança contra volumes órfãos.

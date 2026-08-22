@@ -317,13 +317,16 @@ async function main() {
       hints: ['Use where ResultType != 0 | count.'],
     },
     {
-      // VM completa (não CTF): desktop Ubuntu real via noVNC, provisionado
-      // pelo VmLabDriver. Sem KVM configurado, a instância cai em modo
-      // simulação — ver apps/api/src/labs/drivers/vm.driver.ts.
+      // VM completa (não CTF): desktop Ubuntu real via RDP (xrdp), acessado
+      // através de um gateway Apache Guacamole — mantém a VM na rede
+      // isolada (RDP não é HTTP, não dá pra proxiar por Host() no Traefik
+      // como o noVNC). Ver apps/api/src/labs/drivers/vm.driver.ts e
+      // apps/api/src/labs/drivers/guacamole.client.ts. Sem Docker/Guacamole
+      // configurados, a instância cai em modo simulação.
       title: 'Ubuntu Desktop — Recon Practice', slug: 'ubuntu-desktop-recon-practice',
       objective: 'Praticar enumeração e busca de vulnerabilidades num desktop Ubuntu completo, isolado.',
       category: LabCategory.LINUX, xp: 150,
-      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 90,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 90,
       challenges: [{ title: 'Identificar a versão do kernel', flag: 'uname -r', points: 50 }],
       hints: ['Abra um terminal dentro do desktop e rode "uname -a".'],
     },

@@ -11,7 +11,7 @@ export interface LabProvisionSpec {
   exposedPorts: number[];
   network: string; // rede isolada dedicada
   timeoutMin: number;
-  osType?: 'WINDOWS10' | 'UBUNTU_DESKTOP' | null; // usado só pelo driver de VM
+  osType?: 'WINDOWS10' | 'UBUNTU_DESKTOP' | 'UBUNTU_DESKTOP_RDP' | null; // usado só pelo driver de VM
   vmVersion?: string | null;
 }
 
@@ -21,10 +21,15 @@ export interface LabProvisionResult {
   networkId: string;
   vncPort?: number; // presente só em modo direct-port
   rdpPort?: number; // só Windows/direct-port
+  guacConnectionId?: string; // id da conexão RDP criada no Guacamole (osType *_RDP)
+}
+
+export interface DestroyMeta {
+  guacConnectionId?: string | null; // conexão Guacamole associada (osType *_RDP) — ver VmLabDriver
 }
 
 export interface ILabDriver {
   readonly name: string;
   provision(spec: LabProvisionSpec): Promise<LabProvisionResult>;
-  destroy(externalRef: string): Promise<void>;
+  destroy(externalRef: string, meta?: DestroyMeta): Promise<void>;
 }

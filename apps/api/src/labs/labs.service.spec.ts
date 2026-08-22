@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { LabsService } from './labs.service';
 
 /** Mock mínimo do PrismaService com os métodos que o LabsService usa. */
@@ -20,13 +20,15 @@ describe('LabsService', () => {
   let prisma: any;
   let gamification: any;
   let drivers: any;
+  let guacamole: any;
   let service: LabsService;
 
   beforeEach(() => {
     prisma = makePrismaMock();
     gamification = { awardXp: jest.fn() };
     drivers = makeDriverRegistryMock();
-    service = new LabsService(prisma, gamification, drivers);
+    guacamole = { buildClientUrl: jest.fn().mockResolvedValue('https://guac.example.com/#/client/x?token=y') };
+    service = new LabsService(prisma, gamification, drivers, guacamole);
   });
 
   describe('createLab', () => {
@@ -83,6 +85,20 @@ describe('LabsService', () => {
     it('lança ForbiddenException para instância de outro usuário', async () => {
       prisma.labInstance.findUnique.mockResolvedValue({ id: 'i1', userId: 'outro-usuario' });
       await expect(service.getInstance('u1', 'i1')).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('getRdpAccessUrl', () => {
+    it('gera a URL com token fresco quando a instância tem guacConnectionId', async () => {
+      prisma.labInstance.findUnique.mockResolvedValue({ id: 'i1', userId: 'u1', guacConnectionId: 'guac-conn-1' });
+      const result = await service.getRdpAccessUrl('u1', 'i1');
+      expect(guacamole.buildClientUrl).toHaveBeenCalledWith('guac-conn-1');
+      expect(result.url).toBe('https://guac.example.com/#/client/x?token=y');
+    });
+
+    it('lança BadRequestException quando ainda não há guacConnectionId', async () => {
+      prisma.labInstance.findUnique.mockResolvedValue({ id: 'i1', userId: 'u1', guacConnectionId: null });
+      await expect(service.getRdpAccessUrl('u1', 'i1')).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 

@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { ILabDriver, LabProvisionSpec, LabProvisionResult } from './lab-driver.interface';
+import { randomBytes } from 'crypto';
+import { ILabDriver, LabProvisionSpec, LabProvisionResult, DestroyMeta } from './lab-driver.interface';
+import { GuacamoleClient } from './guacamole.client';
 
 const run = promisify(exec);
 
@@ -15,7 +17,7 @@ const run = promisify(exec);
  */
 const shQuote = (v: string) => `'${v.replace(/'/g, `'"'"'`)}'`;
 
-type OsType = 'WINDOWS10' | 'UBUNTU_DESKTOP';
+type OsType = 'WINDOWS10' | 'UBUNTU_DESKTOP' | 'UBUNTU_DESKTOP_RDP';
 
 interface OsDefaults {
   image: string;
@@ -23,6 +25,8 @@ interface OsDefaults {
   webPort: number;
   rdpPort: number | null;
   accessPath: string;
+  /** 'vnc' → exposto via Traefik (HTTP/iframe direto). 'rdp' → via Guacamole (RDP não é HTTP, não dá pra rotear por Host()). */
+  protocol: 'vnc' | 'rdp';
   env: (spec: LabProvisionSpec) => string[];
 }
 
@@ -33,7 +37,12 @@ interface OsDefaults {
  *    Exige `/dev/kvm` no host do Docker (virtualização de hardware) — sem
  *    isso o boot seria inviavelmente lento em emulação de software.
  *  - UBUNTU_DESKTOP: `dorowu/ubuntu-desktop-lxde-vnc` — desktop Ubuntu real
- *    dentro de um container comum, sem precisar de KVM.
+ *    dentro de um container comum, sem precisar de KVM. Acesso via noVNC
+ *    (iframe direto, roteado pelo Traefik).
+ *  - UBUNTU_DESKTOP_RDP: mesma ideia, mas `danielguerra/ubuntu-xrdp` (xrdp
+ *    instalado) — acesso via RDP através de um gateway Apache Guacamole
+ *    (ver guacamole.client.ts e docker-compose.labs.yml), porque RDP não é
+ *    HTTP e não pode ser roteado por Host() no Traefik como o noVNC.
  * Portas/paths confirmados na documentação pública dessas imagens — validar
  * ao trocar de versão, pois podem mudar entre releases.
  */
@@ -44,6 +53,7 @@ const OS_DEFAULTS: Record<OsType, OsDefaults> = {
     webPort: 8006,
     rdpPort: 3389,
     accessPath: '/',
+    protocol: 'vnc',
     env: (spec) => [
       `VERSION=${spec.vmVersion ?? '10'}`,
       `RAM_SIZE=${Math.max(2, Math.floor(spec.memoryLimitMb / 1024))}G`,
@@ -57,9 +67,22 @@ const OS_DEFAULTS: Record<OsType, OsDefaults> = {
     webPort: 80,
     rdpPort: null,
     accessPath: '/',
+    protocol: 'vnc',
     env: () => ['VNC_PASSWORD=disabled', 'RESOLUTION=1280x800'],
   },
+  UBUNTU_DESKTOP_RDP: {
+    image: 'danielguerra/ubuntu-xrdp',
+    needsKvm: false,
+    webPort: 0, // não usado — protocol:'rdp' não expõe HTTP
+    rdpPort: 3389,
+    accessPath: '',
+    protocol: 'rdp',
+    env: () => [],
+  },
 };
+
+/** Usuário RDP fixo da imagem `danielguerra/ubuntu-xrdp` (senha gerada por instância — ver provision()). */
+const RDP_USERNAME = 'root';
 
 /**
  * Driver de VM completa (QEMU-em-container para Windows; container de
@@ -84,6 +107,8 @@ export class VmLabDriver implements ILabDriver {
   private readonly logger = new Logger(VmLabDriver.name);
   private dockerAvailable: boolean | null = null;
   private kvmAvailable: boolean | null = null;
+
+  constructor(private readonly guacamole: GuacamoleClient) {}
 
   private async hasDocker(): Promise<boolean> {
     if (this.dockerAvailable !== null) return this.dockerAvailable;
@@ -178,8 +203,11 @@ export class VmLabDriver implements ILabDriver {
     // wildcard (`*.${LAB_PUBLIC_DOMAIN}`) uma única vez, na inicialização —
     // ver docker-compose.labs.yml — e ele cobre qualquer `lab-<id>.<domínio>`
     // automaticamente, sem emissão por instância.
+    // RDP (protocol:'rdp') não é HTTP — não dá pra rotear por Host() no
+    // Traefik como o noVNC. O acesso é via Guacamole (ver bloco abaixo,
+    // depois do `docker run`), então nenhum label de Traefik entra aqui.
     const traefikLabels =
-      accessMode === 'traefik-labels'
+      accessMode === 'traefik-labels' && def.protocol === 'vnc'
         ? [
             '--label traefik.enable=true',
             `--label ${shQuote(`traefik.http.routers.lab-${spec.instanceId}.rule=Host(\`lab-${spec.instanceId}.${process.env.LAB_PUBLIC_DOMAIN}\`)`)}`,
@@ -198,7 +226,7 @@ export class VmLabDriver implements ILabDriver {
       '--security-opt no-new-privileges',
       // SEM --cap-drop ALL / --read-only — ver docstring da classe.
       `-v ${volumeName}:/storage`,
-      accessMode === 'direct-port' ? `-p 0:${def.webPort}` : '',
+      accessMode === 'direct-port' && def.protocol === 'vnc' ? `-p 0:${def.webPort}` : '',
       accessMode === 'direct-port' && def.rdpPort ? `-p 0:${def.rdpPort}` : '',
       ...traefikLabels,
       ...def.env(spec).map((e) => `-e ${e}`),
@@ -213,8 +241,33 @@ export class VmLabDriver implements ILabDriver {
     let accessUrl: string | null;
     let vncPort: number | undefined;
     let rdpPort: number | undefined;
+    let guacConnectionId: string | undefined;
 
-    if (accessMode === 'traefik-labels') {
+    if (def.protocol === 'rdp') {
+      // Gateway web (Apache Guacamole) em vez de porta exposta — mantém a
+      // VM na rede isolada. `accessUrl` fica null de propósito: o token de
+      // sessão do Guacamole expira por inatividade, então a URL completa
+      // (com token fresco) é gerada só quando o aluno abre o console, via
+      // GET /labs/instances/:id/rdp-token (ver labs.controller.ts).
+      try {
+        const containerIp = await this.containerIp(externalRef, spec.network);
+        const password = randomBytes(12).toString('base64url');
+        await run(`docker exec ${externalRef} bash -c ${shQuote(`echo ${RDP_USERNAME}:${password} | chpasswd`)}`);
+        guacConnectionId = await this.guacamole.createRdpConnection({
+          name: containerName,
+          hostname: containerIp,
+          port: def.rdpPort ?? 3389,
+          username: RDP_USERNAME,
+          password,
+        });
+      } catch (e) {
+        // Não derruba o lab por isso — o container Ubuntu já está de pé;
+        // sem conexão no Guacamole, o aluno só não vê o console ainda.
+        // getInstance()/rdp-token tratam guacConnectionId ausente.
+        this.logger.error(`Falha ao configurar acesso RDP via Guacamole: ${(e as Error).message}`);
+      }
+      accessUrl = null;
+    } else if (accessMode === 'traefik-labels') {
       accessUrl = `https://lab-${spec.instanceId}.${process.env.LAB_PUBLIC_DOMAIN}${def.accessPath}`;
     } else {
       vncPort = (await this.publishedPort(externalRef, def.webPort)) ?? undefined;
@@ -223,7 +276,7 @@ export class VmLabDriver implements ILabDriver {
     }
 
     this.logger.log(`VM provisionada (${osType}): ${containerName} (${externalRef.slice(0, 12)})`);
-    return { externalRef, accessUrl, networkId: spec.network, vncPort, rdpPort };
+    return { externalRef, accessUrl, networkId: spec.network, vncPort, rdpPort, guacConnectionId };
   }
 
   private async publishedPort(ref: string, internalPort: number): Promise<number | null> {
@@ -236,7 +289,18 @@ export class VmLabDriver implements ILabDriver {
     }
   }
 
-  async destroy(externalRef: string): Promise<void> {
+  /** IP do container na rede isolada — é o que o Guacamole usa como `hostname` da conexão RDP. */
+  private async containerIp(ref: string, network: string): Promise<string> {
+    const { stdout } = await run(`docker inspect ${ref} --format "{{(index .NetworkSettings.Networks ${shQuote(network)}).IPAddress}}"`);
+    const ip = stdout.trim();
+    if (!ip) throw new Error(`Não foi possível obter o IP do container ${ref} na rede ${network}.`);
+    return ip;
+  }
+
+  async destroy(externalRef: string, meta?: DestroyMeta): Promise<void> {
+    if (meta?.guacConnectionId) {
+      await this.guacamole.deleteConnection(meta.guacConnectionId);
+    }
     if (externalRef.startsWith('sim-')) return;
     if (!(await this.hasDocker())) return;
     try {

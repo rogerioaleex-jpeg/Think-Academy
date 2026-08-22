@@ -126,6 +126,10 @@ enum LabDriver {
 enum VmOsType {
   WINDOWS10
   UBUNTU_DESKTOP
+  /// Mesmo Ubuntu Desktop, mas acessado via RDP (xrdp) através de um
+  /// gateway Apache Guacamole, em vez de noVNC direto — mantém a VM na
+  /// rede isolada (RDP não pode ser proxiado em HTTP puro pelo Traefik).
+  UBUNTU_DESKTOP_RDP
 }
 
 enum XpSource {
@@ -712,6 +716,7 @@ model LabInstance {
   networkId    String?           // rede isolada dedicada
   vncPort      Int?              // porta noVNC publicada (modo direct-port)
   rdpPort      Int?              // porta RDP publicada — só Windows/direct-port
+  guacConnectionId String?       // id da conexão criada no Guacamole (osType *_RDP) — removida no destroy()
   startedAt    DateTime          @default(now())
   expiresAt    DateTime?
   stoppedAt    DateTime?

@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Card, Badge, Button } from '@/components/ui';
 import { VncConsole } from '@/components/VncConsole';
+import { GuacamoleConsole } from '@/components/GuacamoleConsole';
 
 export default function LabConsolePage() {
   return (
@@ -126,23 +127,35 @@ function LabConsole() {
       {isVm && (
         <Card className="mt-4">
           {instance.status !== 'RUNNING' && <p className="text-xs text-muted">Provisionando ambiente…</p>}
-          {instance.status === 'RUNNING' && !instance.accessUrl && (
-            <p className="text-xs text-muted">Aguardando o driver publicar o acesso remoto…</p>
+
+          {/* RDP (via Guacamole) não usa accessUrl direto — o token de sessão
+              expira, então a URL completa é buscada sob demanda pelo próprio
+              componente (ver GuacamoleConsole). */}
+          {instance.status === 'RUNNING' && instance.osType === 'UBUNTU_DESKTOP_RDP' && (
+            <GuacamoleConsole instanceId={instanceId} />
           )}
-          {instance.status === 'RUNNING' && instance.accessUrl && (
+
+          {instance.status === 'RUNNING' && instance.osType !== 'UBUNTU_DESKTOP_RDP' && (
             <>
-              {instance.osType === 'WINDOWS10' && (
-                <p className="mb-2 text-[11px] text-brand">
-                  Ambientes Windows completos podem levar de 5 a 15 minutos para iniciar na primeira execução
-                  (download do sistema). Se a tela ficar preta, aguarde — ela reconecta automaticamente.
-                </p>
+              {!instance.accessUrl && (
+                <p className="text-xs text-muted">Aguardando o driver publicar o acesso remoto…</p>
               )}
-              {instance.accessUrl !== readyUrl ? (
-                <p className="text-xs text-muted">
-                  Emitindo certificado HTTPS do console — pode levar até 1 minuto na primeira vez, aguarde…
-                </p>
-              ) : (
-                <VncConsole accessUrl={instance.accessUrl} />
+              {instance.accessUrl && (
+                <>
+                  {instance.osType === 'WINDOWS10' && (
+                    <p className="mb-2 text-[11px] text-brand">
+                      Ambientes Windows completos podem levar de 5 a 15 minutos para iniciar na primeira execução
+                      (download do sistema). Se a tela ficar preta, aguarde — ela reconecta automaticamente.
+                    </p>
+                  )}
+                  {instance.accessUrl !== readyUrl ? (
+                    <p className="text-xs text-muted">
+                      Emitindo certificado HTTPS do console — pode levar até 1 minuto na primeira vez, aguarde…
+                    </p>
+                  ) : (
+                    <VncConsole accessUrl={instance.accessUrl} />
+                  )}
+                </>
               )}
             </>
           )}

@@ -4,6 +4,7 @@ import { LabDriver } from '@tica/database';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationService } from '../gamification/gamification.service';
 import { LabDriverRegistry } from './drivers/lab-driver.registry';
+import { GuacamoleClient } from './drivers/guacamole.client';
 
 const sha256 = (v: string) => createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
 
@@ -31,6 +32,7 @@ export class LabsService {
     private prisma: PrismaService,
     private gamification: GamificationService,
     private drivers: LabDriverRegistry,
+    private guacamole: GuacamoleClient,
   ) {}
 
   // ---------------------------------------------------------------- Admin
@@ -141,6 +143,7 @@ export class LabsService {
         data: {
           status: 'RUNNING', externalRef: result.externalRef, accessUrl: result.accessUrl,
           networkId: result.networkId, osType: lab.osType, vncPort: result.vncPort, rdpPort: result.rdpPort,
+          guacConnectionId: result.guacConnectionId,
         },
       });
     } catch (e) {
@@ -154,7 +157,9 @@ export class LabsService {
     const instance = await this.prisma.labInstance.findUnique({ where: { id: instanceId } });
     if (!instance) throw new NotFoundException('Instância não encontrada.');
     if (instance.userId !== userId) throw new ForbiddenException();
-    if (instance.externalRef) await this.drivers.resolve(instance.driver).destroy(instance.externalRef);
+    if (instance.externalRef) {
+      await this.drivers.resolve(instance.driver).destroy(instance.externalRef, { guacConnectionId: instance.guacConnectionId });
+    }
     return this.prisma.labInstance.update({
       where: { id: instanceId },
       data: { status: 'DESTROYED', stoppedAt: new Date() },
@@ -180,6 +185,23 @@ export class LabsService {
     if (!instance) throw new NotFoundException('Instância não encontrada.');
     if (instance.userId !== userId) throw new ForbiddenException();
     return instance;
+  }
+
+  /**
+   * URL do console RDP (Guacamole) com token de sessão FRESCO — nunca
+   * persistimos um token de longa duração; ele é gerado só quando o aluno
+   * abre o console, exatamente para poder expirar/renovar sem afetar a
+   * instância em si.
+   */
+  async getRdpAccessUrl(userId: string, instanceId: string) {
+    const instance = await this.prisma.labInstance.findUnique({ where: { id: instanceId } });
+    if (!instance) throw new NotFoundException('Instância não encontrada.');
+    if (instance.userId !== userId) throw new ForbiddenException();
+    if (!instance.guacConnectionId) {
+      throw new BadRequestException('Esta instância ainda não tem acesso RDP configurado — tente novamente em alguns segundos.');
+    }
+    const url = await this.guacamole.buildClientUrl(instance.guacConnectionId);
+    return { url };
   }
 
   /** Reset = destrói e reprovisiona. */
@@ -233,7 +255,9 @@ export class LabsService {
       where: { status: { in: ['PROVISIONING', 'RUNNING'] }, expiresAt: { lt: new Date() } },
     });
     for (const inst of expired) {
-      if (inst.externalRef) await this.drivers.resolve(inst.driver).destroy(inst.externalRef);
+      if (inst.externalRef) {
+        await this.drivers.resolve(inst.driver).destroy(inst.externalRef, { guacConnectionId: inst.guacConnectionId });
+      }
       await this.prisma.labInstance.update({
         where: { id: inst.id },
         data: { status: 'EXPIRED', stoppedAt: new Date() },
