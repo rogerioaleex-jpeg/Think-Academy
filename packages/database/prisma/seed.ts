@@ -283,6 +283,7 @@ async function main() {
   // ---------------------------------------------------------------- Labs
   const labs: Array<{
     title: string; slug: string; objective: string; category: LabCategory; xp: number;
+    difficulty?: Difficulty; durationMin?: number;
     driver?: LabDriver; osType?: VmOsType; cpuLimit?: string; memoryLimitMb?: number; timeoutMin?: number;
     challenges: { title: string; flag: string; points: number }[];
     hints: string[];
@@ -330,6 +331,128 @@ async function main() {
       challenges: [{ title: 'Identificar a versão do kernel', flag: 'uname -r', points: 50 }],
       hints: ['Abra um terminal dentro do desktop e rode "uname -a".'],
     },
+
+    // ------------------------------------------------- Redes (NETWORK) ---
+    {
+      title: 'Network Fundamentals — Subnetting & Protocolos', slug: 'network-fundamentals-subnetting',
+      objective: 'Praticar cálculo de sub-redes e reconhecimento de protocolos/portas comuns em um cenário de segmentação de rede.',
+      category: LabCategory.NETWORK, xp: 120, difficulty: Difficulty.EASY, durationMin: 30,
+      challenges: [
+        { title: 'Endereço de broadcast de 192.168.10.0/26', flag: '192.168.10.63', points: 40 },
+        { title: 'Hosts utilizáveis numa rede /27', flag: '30', points: 40 },
+        { title: 'Porta TCP padrão do protocolo RDP', flag: '3389', points: 40 },
+      ],
+      hints: [
+        'Hosts utilizáveis = 2^(32 - prefixo) - 2.',
+        'O endereço de broadcast é sempre o último endereço do intervalo da sub-rede.',
+      ],
+    },
+    {
+      title: 'Packet Analysis — Tráfego Suspeito', slug: 'packet-analysis-trafego-suspeito',
+      objective: 'Analisar uma captura sintética de tráfego de rede e identificar indícios de reconhecimento (port scanning).',
+      category: LabCategory.NETWORK, xp: 180, difficulty: Difficulty.MEDIUM, durationMin: 40,
+      challenges: [
+        { title: 'Flag TCP que indica o início de uma conexão', flag: 'syn', points: 60 },
+        { title: 'Ferramenta de linha de comando mais usada para varredura de portas', flag: 'nmap', points: 60 },
+        { title: 'Nome do tipo de scan que nunca completa o three-way handshake', flag: 'syn scan', points: 60 },
+      ],
+      hints: [
+        'Um handshake TCP completo é SYN → SYN-ACK → ACK.',
+        'Esse tipo de scan é chamado de "half-open" porque a conexão nunca é finalizada.',
+      ],
+    },
+
+    // ------------------------------------------------------- WINDOWS ----
+    {
+      title: 'Windows Event Log — Detecção de Força Bruta', slug: 'windows-event-log-forca-bruta',
+      objective: 'Interpretar Event IDs nativos do Windows Security Log para identificar um ataque de força bruta local.',
+      category: LabCategory.WINDOWS, xp: 130, difficulty: Difficulty.EASY, durationMin: 30,
+      challenges: [
+        { title: 'Event ID de falha de logon', flag: '4625', points: 40 },
+        { title: 'Event ID de logon bem-sucedido', flag: '4624', points: 40 },
+        { title: 'Utilitário nativo de linha de comando para consultar logs do Windows', flag: 'wevtutil', points: 50 },
+      ],
+      hints: [
+        'Os Event IDs de logon do Windows Security log ficam na faixa 4624-4634.',
+        'O utilitário é parte do próprio Windows, não precisa instalar nada.',
+      ],
+    },
+    {
+      title: 'Active Directory — Fundamentos de Escalonamento', slug: 'active-directory-fundamentos-escalonamento',
+      objective: 'Compreender conceitos fundamentais de escalonamento de privilégios em ambientes Active Directory.',
+      category: LabCategory.WINDOWS, xp: 200, difficulty: Difficulty.HARD, durationMin: 45,
+      challenges: [
+        { title: 'Grupo do AD com controle total sobre o domínio', flag: 'domain admins', points: 70 },
+        { title: 'Protocolo de autenticação alvo de ataques Kerberoasting', flag: 'kerberos', points: 65 },
+        { title: 'Cmdlet do PowerShell que lista os membros de um grupo do AD', flag: 'get-adgroupmember', points: 65 },
+      ],
+      hints: [
+        'Kerberoasting explora contas de serviço com SPN configurado.',
+        'Os cmdlets do módulo ActiveDirectory seguem o padrão Verbo-Ad*.',
+      ],
+    },
+
+    // --------------------------------------------------------- LINUX ----
+    {
+      title: 'Linux Privilege Escalation — Enumeração', slug: 'linux-privesc-enumeracao',
+      objective: 'Praticar técnicas de enumeração usadas para encontrar vetores de escalonamento de privilégios em sistemas Linux.',
+      category: LabCategory.LINUX, xp: 150, difficulty: Difficulty.MEDIUM, durationMin: 35,
+      challenges: [
+        { title: 'Permissão especial que executa um binário com privilégios do proprietário', flag: 'suid', points: 50 },
+        { title: 'Arquivo que lista os usuários com permissão de sudo', flag: '/etc/sudoers', points: 50 },
+        { title: 'Comando que exibe a versão do kernel em execução', flag: 'uname -r', points: 50 },
+      ],
+      hints: [
+        '`find / -perm -4000` lista binários com esse bit habilitado.',
+        'Sempre edite esse arquivo com `visudo`, nunca direto.',
+      ],
+    },
+    {
+      title: 'Linux Log Analysis — Persistência', slug: 'linux-log-analysis-persistencia',
+      objective: 'Identificar mecanismos comuns de persistência usados por atacantes em sistemas Linux comprometidos.',
+      category: LabCategory.LINUX, xp: 170, difficulty: Difficulty.MEDIUM, durationMin: 40,
+      challenges: [
+        { title: 'Mecanismo de agendamento de tarefas usado para persistência', flag: 'crontab', points: 55 },
+        { title: 'Diretório que guarda unidades de serviço do systemd', flag: '/etc/systemd/system', points: 55 },
+        { title: 'Comando que lista os serviços habilitados no boot', flag: 'systemctl list-unit-files', points: 60 },
+      ],
+      hints: [
+        'Verifique tanto o crontab do usuário quanto o /etc/crontab e /etc/cron.d/.',
+        'Serviços "enabled" iniciam automaticamente no boot.',
+      ],
+    },
+
+    // ------------------------------------------------------- RED TEAM ---
+    // Categoria CTF — o catálogo ainda não tem um enum dedicado "RED_TEAM";
+    // CTF é a categoria mais próxima pra desafios ofensivos/red team.
+    {
+      title: 'Red Team — MITRE ATT&CK na Prática', slug: 'red-team-mitre-attack-na-pratica',
+      objective: 'Mapear técnicas de ataque observadas às táticas do framework MITRE ATT&CK.',
+      category: LabCategory.CTF, xp: 160, difficulty: Difficulty.MEDIUM, durationMin: 35,
+      challenges: [
+        { title: 'Tática que corresponde ao movimento entre sistemas já comprometidos', flag: 'lateral movement', points: 55 },
+        { title: 'Técnica de reautenticação usando um hash de senha roubado (sem saber o texto claro)', flag: 'pass the hash', points: 55 },
+        { title: 'Tática que descreve a coleta de informações antes do ataque', flag: 'reconnaissance', points: 50 },
+      ],
+      hints: [
+        'O MITRE ATT&CK organiza técnicas em táticas — cada tática representa um objetivo do atacante.',
+        '"Pass the hash" evita a necessidade de quebrar o hash da senha.',
+      ],
+    },
+    {
+      title: 'Red Team — Acesso Inicial e Phishing', slug: 'red-team-acesso-inicial-phishing',
+      objective: 'Compreender vetores comuns de acesso inicial usados em engajamentos de red team autorizados.',
+      category: LabCategory.CTF, xp: 190, difficulty: Difficulty.HARD, durationMin: 40,
+      challenges: [
+        { title: 'Técnica de engenharia social que usa e-mail fraudulento para induzir um clique malicioso', flag: 'phishing', points: 60 },
+        { title: 'Componente de documentos Office usado para entregar código malicioso', flag: 'macro', points: 60 },
+        { title: 'Framework open-source amplamente usado para gerar payloads e sessões C2 em testes autorizados', flag: 'metasploit', points: 70 },
+      ],
+      hints: [
+        'Spear phishing é uma variante direcionada a um alvo específico.',
+        'Esse framework também é conhecido por seu módulo "meterpreter".',
+      ],
+    },
   ];
   for (const l of labs) {
     const isVm = l.driver === LabDriver.VM;
@@ -337,7 +460,7 @@ async function main() {
       where: { slug: l.slug }, update: {},
       create: {
         title: l.title, slug: l.slug, objective: l.objective, category: l.category,
-        difficulty: 'MEDIUM', durationMin: 45, xpReward: l.xp, driver: l.driver ?? LabDriver.DOCKER,
+        difficulty: l.difficulty ?? 'MEDIUM', durationMin: l.durationMin ?? 45, xpReward: l.xp, driver: l.driver ?? LabDriver.DOCKER,
         osType: isVm ? l.osType : null,
         // nginx:alpine — placeholder inerte e REAL (existe no Docker Hub);
         // validado em produção que uma imagem fictícia faz o `docker run`
