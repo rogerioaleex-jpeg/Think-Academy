@@ -284,7 +284,7 @@ async function main() {
   const labs: Array<{
     title: string; slug: string; objective: string; category: LabCategory; xp: number;
     difficulty?: Difficulty; durationMin?: number;
-    driver?: LabDriver; osType?: VmOsType; cpuLimit?: string; memoryLimitMb?: number; timeoutMin?: number;
+    driver?: LabDriver; osType?: VmOsType; vmVersion?: string; cpuLimit?: string; memoryLimitMb?: number; timeoutMin?: number;
     challenges: { title: string; flag: string; points: number }[];
     hints: string[];
   }> = [
@@ -335,8 +335,9 @@ async function main() {
     // ------------------------------------------------- Redes (NETWORK) ---
     {
       title: 'Network Fundamentals — Subnetting & Protocolos', slug: 'network-fundamentals-subnetting',
-      objective: 'Praticar cálculo de sub-redes e reconhecimento de protocolos/portas comuns em um cenário de segmentação de rede.',
+      objective: 'Praticar cálculo de sub-redes e reconhecimento de protocolos/portas comuns num desktop Linux real, isolado.',
       category: LabCategory.NETWORK, xp: 120, difficulty: Difficulty.EASY, durationMin: 30,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
       challenges: [
         { title: 'Endereço de broadcast de 192.168.10.0/26', flag: '192.168.10.63', points: 40 },
         { title: 'Hosts utilizáveis numa rede /27', flag: '30', points: 40 },
@@ -349,8 +350,9 @@ async function main() {
     },
     {
       title: 'Packet Analysis — Tráfego Suspeito', slug: 'packet-analysis-trafego-suspeito',
-      objective: 'Analisar uma captura sintética de tráfego de rede e identificar indícios de reconhecimento (port scanning).',
+      objective: 'Analisar tráfego de rede e identificar indícios de reconhecimento (port scanning) num desktop Linux real, isolado.',
       category: LabCategory.NETWORK, xp: 180, difficulty: Difficulty.MEDIUM, durationMin: 40,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
       challenges: [
         { title: 'Flag TCP que indica o início de uma conexão', flag: 'syn', points: 60 },
         { title: 'Ferramenta de linha de comando mais usada para varredura de portas', flag: 'nmap', points: 60 },
@@ -364,9 +366,14 @@ async function main() {
 
     // ------------------------------------------------------- WINDOWS ----
     {
+      // Windows 10 real via QEMU/KVM — exige host dedicado com recursos
+      // adequados (padrão 4 vCPU/8GB). No host pequeno atual (2 vCPU/3.8GB,
+      // já com Traefik+Guacamole+Postgres), é esperado que fique lento ou
+      // caia em modo simulação até o redimensionamento.
       title: 'Windows Event Log — Detecção de Força Bruta', slug: 'windows-event-log-forca-bruta',
-      objective: 'Interpretar Event IDs nativos do Windows Security Log para identificar um ataque de força bruta local.',
+      objective: 'Interpretar Event IDs nativos do Windows Security Log para identificar um ataque de força bruta local, numa VM Windows 10 real.',
       category: LabCategory.WINDOWS, xp: 130, difficulty: Difficulty.EASY, durationMin: 30,
+      driver: LabDriver.VM, osType: VmOsType.WINDOWS10, vmVersion: '10', cpuLimit: '4', memoryLimitMb: 8192, timeoutMin: 90,
       challenges: [
         { title: 'Event ID de falha de logon', flag: '4625', points: 40 },
         { title: 'Event ID de logon bem-sucedido', flag: '4624', points: 40 },
@@ -378,9 +385,11 @@ async function main() {
       ],
     },
     {
+      // Mesma ressalva de recursos do lab anterior — Windows 10 real via QEMU/KVM.
       title: 'Active Directory — Fundamentos de Escalonamento', slug: 'active-directory-fundamentos-escalonamento',
-      objective: 'Compreender conceitos fundamentais de escalonamento de privilégios em ambientes Active Directory.',
+      objective: 'Compreender conceitos fundamentais de escalonamento de privilégios em ambientes Active Directory, numa VM Windows 10 real.',
       category: LabCategory.WINDOWS, xp: 200, difficulty: Difficulty.HARD, durationMin: 45,
+      driver: LabDriver.VM, osType: VmOsType.WINDOWS10, vmVersion: '10', cpuLimit: '4', memoryLimitMb: 8192, timeoutMin: 90,
       challenges: [
         { title: 'Grupo do AD com controle total sobre o domínio', flag: 'domain admins', points: 70 },
         { title: 'Protocolo de autenticação alvo de ataques Kerberoasting', flag: 'kerberos', points: 65 },
@@ -395,8 +404,9 @@ async function main() {
     // --------------------------------------------------------- LINUX ----
     {
       title: 'Linux Privilege Escalation — Enumeração', slug: 'linux-privesc-enumeracao',
-      objective: 'Praticar técnicas de enumeração usadas para encontrar vetores de escalonamento de privilégios em sistemas Linux.',
+      objective: 'Praticar técnicas de enumeração usadas para encontrar vetores de escalonamento de privilégios, num desktop Linux real, isolado.',
       category: LabCategory.LINUX, xp: 150, difficulty: Difficulty.MEDIUM, durationMin: 35,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
       challenges: [
         { title: 'Permissão especial que executa um binário com privilégios do proprietário', flag: 'suid', points: 50 },
         { title: 'Arquivo que lista os usuários com permissão de sudo', flag: '/etc/sudoers', points: 50 },
@@ -409,8 +419,9 @@ async function main() {
     },
     {
       title: 'Linux Log Analysis — Persistência', slug: 'linux-log-analysis-persistencia',
-      objective: 'Identificar mecanismos comuns de persistência usados por atacantes em sistemas Linux comprometidos.',
+      objective: 'Identificar mecanismos comuns de persistência usados por atacantes, num desktop Linux real, isolado.',
       category: LabCategory.LINUX, xp: 170, difficulty: Difficulty.MEDIUM, durationMin: 40,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
       challenges: [
         { title: 'Mecanismo de agendamento de tarefas usado para persistência', flag: 'crontab', points: 55 },
         { title: 'Diretório que guarda unidades de serviço do systemd', flag: '/etc/systemd/system', points: 55 },
@@ -427,8 +438,9 @@ async function main() {
     // CTF é a categoria mais próxima pra desafios ofensivos/red team.
     {
       title: 'Red Team — MITRE ATT&CK na Prática', slug: 'red-team-mitre-attack-na-pratica',
-      objective: 'Mapear técnicas de ataque observadas às táticas do framework MITRE ATT&CK.',
+      objective: 'Mapear técnicas de ataque observadas às táticas do framework MITRE ATT&CK, com um desktop Linux real à disposição.',
       category: LabCategory.CTF, xp: 160, difficulty: Difficulty.MEDIUM, durationMin: 35,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
       challenges: [
         { title: 'Tática que corresponde ao movimento entre sistemas já comprometidos', flag: 'lateral movement', points: 55 },
         { title: 'Técnica de reautenticação usando um hash de senha roubado (sem saber o texto claro)', flag: 'pass the hash', points: 55 },
@@ -441,8 +453,9 @@ async function main() {
     },
     {
       title: 'Red Team — Acesso Inicial e Phishing', slug: 'red-team-acesso-inicial-phishing',
-      objective: 'Compreender vetores comuns de acesso inicial usados em engajamentos de red team autorizados.',
+      objective: 'Compreender vetores comuns de acesso inicial usados em engajamentos de red team autorizados, com um desktop Linux real à disposição.',
       category: LabCategory.CTF, xp: 190, difficulty: Difficulty.HARD, durationMin: 40,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
       challenges: [
         { title: 'Técnica de engenharia social que usa e-mail fraudulento para induzir um clique malicioso', flag: 'phishing', points: 60 },
         { title: 'Componente de documentos Office usado para entregar código malicioso', flag: 'macro', points: 60 },
@@ -462,6 +475,7 @@ async function main() {
         title: l.title, slug: l.slug, objective: l.objective, category: l.category,
         difficulty: l.difficulty ?? 'MEDIUM', durationMin: l.durationMin ?? 45, xpReward: l.xp, driver: l.driver ?? LabDriver.DOCKER,
         osType: isVm ? l.osType : null,
+        vmVersion: isVm ? l.vmVersion : null,
         // nginx:alpine — placeholder inerte e REAL (existe no Docker Hub);
         // validado em produção que uma imagem fictícia faz o `docker run`
         // falhar assim que o Docker está de fato conectado. A validação do
