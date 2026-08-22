@@ -47,7 +47,10 @@ export class CoursesService {
           include: {
             lessons: {
               orderBy: { order: 'asc' },
-              include: { video: true, materials: true },
+              include: {
+                video: true, materials: true,
+                exam: { select: { id: true, title: true, questionCount: true, durationMin: true, passScorePct: true } },
+              },
             },
           },
         },
@@ -123,6 +126,8 @@ export class CoursesService {
       data: {
         moduleId, title: dto.title, description: dto.description,
         order: dto.order ?? count, videoId: dto.videoId,
+        type: dto.type ?? (dto.videoId ? 'VIDEO' : dto.examId ? 'QUIZ' : dto.content ? 'TEXT' : 'VIDEO'),
+        content: dto.content, examId: dto.examId,
       },
     });
   }

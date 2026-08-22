@@ -1,13 +1,19 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { api } from '@/lib/api';
 import { Card, Badge, Button, Progress } from '@/components/ui';
 import { FinalExamPanel } from '@/components/FinalExamPanel';
 import { DIFFICULTY_LABEL, LESSON_TYPE_ICON, resolveVideoEmbed } from '@/lib/video';
 
 interface Video { id: string; title: string; externalUrl: string | null; storageKey: string | null; durationSec: number }
-interface Lesson { id: string; title: string; description: string | null; type: string; video: Video | null }
+interface LessonExam { id: string; title: string; questionCount: number; durationMin: number; passScorePct: number }
+interface Lesson {
+  id: string; title: string; description: string | null; type: string; video: Video | null;
+  content: string | null; exam: LessonExam | null;
+}
 interface Module { id: string; title: string; description: string | null; lessons: Lesson[] }
 interface FinalExam { id: string; title: string; passScorePct: number; questionCount: number; durationMin: number }
 interface Course {
@@ -250,28 +256,50 @@ export default function CourseDetailPage() {
                 <h3 className="text-base font-bold text-ink">{selectedLesson.title}</h3>
                 {selectedLesson.description && <p className="mt-1 text-sm text-muted">{selectedLesson.description}</p>}
 
-                <div className="mt-4 aspect-video overflow-hidden rounded-lg bg-[#101317]">
-                  {!selectedLesson.video && (
-                    <div className="flex h-full items-center justify-center text-xs text-[#c7ccd2]">
-                      Sem vídeo cadastrado para esta aula.
-                    </div>
-                  )}
-                  {selectedLesson.video && !playback && (
-                    <div className="flex h-full items-center justify-center text-xs text-[#c7ccd2]">Carregando vídeo…</div>
-                  )}
-                  {embed?.kind === 'iframe' && (
-                    <iframe src={embed.src} className="h-full w-full" allowFullScreen title={selectedLesson.title} />
-                  )}
-                  {embed?.kind === 'video' && (
-                    <video src={embed.src} controls className="h-full w-full" />
-                  )}
-                  {embed?.kind === 'link' && (
-                    <div className="flex h-full flex-col items-center justify-center gap-2 text-xs text-[#c7ccd2]">
-                      <span>Não foi possível incorporar este link.</span>
-                      <a href={embed.src} target="_blank" rel="noreferrer" className="text-brand underline">Abrir vídeo em nova aba ↗</a>
-                    </div>
-                  )}
-                </div>
+                {/* TEXT (capítulo de ebook): renderiza o markdown direto, sem área de vídeo. */}
+                {selectedLesson.type === 'TEXT' && selectedLesson.content && (
+                  <div className="prose prose-sm mt-4 max-w-none text-ink prose-headings:text-ink prose-a:text-brand prose-strong:text-ink prose-table:text-xs">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedLesson.content}</ReactMarkdown>
+                  </div>
+                )}
+
+                {/* QUIZ (lista de perguntas de fim de módulo): reaproveita o mesmo painel da prova final. */}
+                {selectedLesson.type === 'QUIZ' && selectedLesson.exam && (
+                  <div className="mt-4">
+                    <FinalExamPanel
+                      exam={selectedLesson.exam}
+                      unlocked
+                      heading="Questões deste módulo"
+                      unlockedHint="Responda as questões abaixo para revisar o conteúdo do módulo."
+                    />
+                  </div>
+                )}
+
+                {/* VIDEO (padrão) — só mostra a área de player quando não é TEXT/QUIZ com conteúdo próprio. */}
+                {!(selectedLesson.type === 'TEXT' && selectedLesson.content) && !(selectedLesson.type === 'QUIZ' && selectedLesson.exam) && (
+                  <div className="mt-4 aspect-video overflow-hidden rounded-lg bg-[#101317]">
+                    {!selectedLesson.video && (
+                      <div className="flex h-full items-center justify-center text-xs text-[#c7ccd2]">
+                        Sem vídeo cadastrado para esta aula.
+                      </div>
+                    )}
+                    {selectedLesson.video && !playback && (
+                      <div className="flex h-full items-center justify-center text-xs text-[#c7ccd2]">Carregando vídeo…</div>
+                    )}
+                    {embed?.kind === 'iframe' && (
+                      <iframe src={embed.src} className="h-full w-full" allowFullScreen title={selectedLesson.title} />
+                    )}
+                    {embed?.kind === 'video' && (
+                      <video src={embed.src} controls className="h-full w-full" />
+                    )}
+                    {embed?.kind === 'link' && (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-xs text-[#c7ccd2]">
+                        <span>Não foi possível incorporar este link.</span>
+                        <a href={embed.src} target="_blank" rel="noreferrer" className="text-brand underline">Abrir vídeo em nova aba ↗</a>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-4 flex items-center gap-2">
                   <Button onClick={markComplete} disabled={busy || !!done}>

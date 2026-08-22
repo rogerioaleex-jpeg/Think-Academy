@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsOptional, IsString, Min, IsArray, ArrayMaxSize } from 'class-validator';
-import { Difficulty } from '@tica/database';
+import { Difficulty, LessonType } from '@tica/database';
 
 export class CreateCourseDto {
   @ApiProperty() @IsString() title!: string;
@@ -41,6 +41,11 @@ export class CreateLessonDto {
   @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() order?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() videoId?: string;
+  @ApiPropertyOptional({ enum: LessonType }) @IsOptional() @IsEnum(LessonType) type?: LessonType;
+  @ApiPropertyOptional({ description: 'Corpo em markdown — usado quando type=TEXT.' })
+  @IsOptional() @IsString() content?: string;
+  @ApiPropertyOptional({ description: 'Id de um Exam existente — usado quando type=QUIZ.' })
+  @IsOptional() @IsString() examId?: string;
 }
 
 export class BulkAssignDto {

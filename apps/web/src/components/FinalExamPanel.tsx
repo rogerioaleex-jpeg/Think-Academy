@@ -9,8 +9,17 @@ interface Attempt { attemptId: string; expiresAt: string | null; durationMin: nu
 interface ReviewItem { questionId: string; correct: boolean; correctOptionId: string | null; explanation: string | null }
 interface Result { attemptId: string; scorePct: number; passed: boolean; expired: boolean; correct: number; total: number; passScorePct: number; review: ReviewItem[] }
 
-/** Avaliação final do curso: inicia a tentativa, coleta respostas e mostra o resultado corrigido. */
-export function FinalExamPanel({ exam, unlocked }: { exam: ExamMeta; unlocked: boolean }) {
+/**
+ * Painel de prova genérico: inicia a tentativa, coleta respostas e mostra o
+ * resultado corrigido. Usado tanto pra avaliação final do curso quanto pro
+ * quiz de fim de módulo (mesma mecânica de /exams — só muda o título/copy).
+ */
+export function FinalExamPanel({
+  exam,
+  unlocked,
+  heading = 'Avaliação final',
+  unlockedHint = 'Conclua todas as aulas para liberar a prova final (você já pode tentar antes, se preferir).',
+}: { exam: ExamMeta; unlocked: boolean; heading?: string; unlockedHint?: string }) {
   const [phase, setPhase] = useState<'intro' | 'running' | 'result'>('intro');
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -42,7 +51,7 @@ export function FinalExamPanel({ exam, unlocked }: { exam: ExamMeta; unlocked: b
     <Card className="mt-5 border-t-4 border-t-brand">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wide text-brand">Avaliação final</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-brand">{heading}</h2>
           <p className="mt-1 text-lg font-bold text-ink">{exam.title}</p>
           <p className="mt-1 text-xs text-muted">
             Nota mínima {exam.passScorePct}%{exam.questionCount ? ` · ${exam.questionCount} questões` : ''}{exam.durationMin ? ` · ${exam.durationMin} min` : ''}
@@ -53,7 +62,7 @@ export function FinalExamPanel({ exam, unlocked }: { exam: ExamMeta; unlocked: b
       {phase === 'intro' && (
         <div className="mt-4">
           {!unlocked && (
-            <p className="mb-3 text-xs text-muted">Conclua todas as aulas para liberar a prova final (você já pode tentar antes, se preferir).</p>
+            <p className="mb-3 text-xs text-muted">{unlockedHint}</p>
           )}
           <Button onClick={start} disabled={busy}>Iniciar prova</Button>
         </div>

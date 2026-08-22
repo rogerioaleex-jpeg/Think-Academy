@@ -382,6 +382,10 @@ model Lesson {
   description String?
   type        LessonType @default(VIDEO)
   order       Int        @default(0)
+  // Corpo em markdown da aula, usado quando type=TEXT (ex.: capítulo de
+  // ebook) — String do Postgres já é unbounded (text), sem limite de
+  // tamanho prático.
+  content     String?
   // ponteiros opcionais para o conteúdo específico do tipo de aula
   videoId     String?    @unique
   examId      String?    // quiz vinculado
