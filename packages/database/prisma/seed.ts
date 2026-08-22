@@ -367,9 +367,10 @@ async function main() {
     // ------------------------------------------------------- WINDOWS ----
     {
       // Windows 10 real via QEMU/KVM — exige host dedicado com recursos
-      // adequados (padrão 4 vCPU/8GB). No host pequeno atual (2 vCPU/3.8GB,
-      // já com Traefik+Guacamole+Postgres), é esperado que fique lento ou
-      // caia em modo simulação até o redimensionamento.
+      // adequados (padrão 4 vCPU/8GB) e WINDOWS_ISO_CACHE_PATH configurado
+      // (rede isolada não tem saída à internet pra baixar a ISO da
+      // Microsoft — ver vm.driver.ts). Validado em produção na VM 4
+      // vCPU/16GB com a ISO em cache.
       title: 'Windows Event Log — Detecção de Força Bruta', slug: 'windows-event-log-forca-bruta',
       objective: 'Interpretar Event IDs nativos do Windows Security Log para identificar um ataque de força bruta local, numa VM Windows 10 real.',
       category: LabCategory.WINDOWS, xp: 130, difficulty: Difficulty.EASY, durationMin: 30,
