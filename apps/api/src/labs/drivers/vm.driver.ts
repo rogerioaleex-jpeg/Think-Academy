@@ -170,12 +170,19 @@ export class VmLabDriver implements ILabDriver {
           'ou aponte LAB_NETWORK para uma rede NÃO internal só para teste local sem garantia de isolamento.',
       );
     }
+    // SEM `tls.certresolver` por instância de propósito: emitir um
+    // certificado Let's Encrypt NOVO por instância levava ~50s em produção
+    // (o console parecia "não abrir nenhuma máquina" nesse meio-tempo) e
+    // arriscaria o limite semanal de emissões do Let's Encrypt em uso real
+    // com várias instâncias/resets. O Traefik já obtém UM certificado
+    // wildcard (`*.${LAB_PUBLIC_DOMAIN}`) uma única vez, na inicialização —
+    // ver docker-compose.labs.yml — e ele cobre qualquer `lab-<id>.<domínio>`
+    // automaticamente, sem emissão por instância.
     const traefikLabels =
       accessMode === 'traefik-labels'
         ? [
             '--label traefik.enable=true',
             `--label ${shQuote(`traefik.http.routers.lab-${spec.instanceId}.rule=Host(\`lab-${spec.instanceId}.${process.env.LAB_PUBLIC_DOMAIN}\`)`)}`,
-            `--label traefik.http.routers.lab-${spec.instanceId}.tls.certresolver=letsencrypt`,
             `--label traefik.http.services.lab-${spec.instanceId}.loadbalancer.server.port=${def.webPort}`,
           ]
         : [];

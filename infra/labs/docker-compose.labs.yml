@@ -17,7 +17,13 @@
 #     resolve nada), então sem o Traefik nenhuma VM tem accessUrl de
 #     verdade. Ele expõe cada VM em https://lab-<instanceId>.<LAB_PUBLIC_DOMAIN>/
 #     com TLS automático — também resolve o mixed content, já que `apps/web`
-#     roda em HTTPS e um iframe `http://` seria bloqueado.
+#     roda em HTTPS e um iframe `http://` seria bloqueado. Usa um
+#     certificado WILDCARD único (`*.<LAB_PUBLIC_DOMAIN>`), obtido uma vez na
+#     inicialização — validado em produção: emitir um certificado NOVO por
+#     instância (via label `tls.certresolver`) levava ~50s por lab (parecia
+#     "não abre nenhuma VM") e arriscaria o limite semanal de emissões do
+#     Let's Encrypt com uso real. Com o wildcard estático, todo `accessUrl`
+#     já está coberto assim que o container sobe.
 #
 # Os containers de cada VM (Windows/Ubuntu) são criados e destruídos
 # DINAMICAMENTE pelo VmLabDriver (apps/api/src/labs/drivers/vm.driver.ts) via
@@ -70,9 +76,17 @@ services:
       - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
       - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=${LAB_ACME_DNS_PROVIDER:-}
-    # CF_DNS_API_TOKEN (provider=cloudflare) — NUNCA versionar o valor real;
-    # vem de um .env local no host (fora do git), lido pelo `docker compose`
-    # a partir do mesmo diretório deste arquivo. Ver README.md.
+      # Certificado wildcard único, obtido uma vez no boot do Traefik — cobre
+      # QUALQUER lab-<id>.<LAB_PUBLIC_DOMAIN> automaticamente (ver comentário
+      # no topo do arquivo). LAB_PUBLIC_DOMAIN aqui precisa ser o MESMO valor
+      # configurado na API (Render) — ex.: "labs.hackerarena.com.br".
+      - --entrypoints.websecure.http.tls=true
+      - --entrypoints.websecure.http.tls.certresolver=letsencrypt
+      - --entrypoints.websecure.http.tls.domains[0].main=*.${LAB_PUBLIC_DOMAIN:-labs.example.com}
+    # CF_DNS_API_TOKEN (provider=cloudflare) e LAB_PUBLIC_DOMAIN — NUNCA
+    # versionar o valor real; vêm de um .env local no host (fora do git),
+    # lido pelo `docker compose` a partir do mesmo diretório deste arquivo.
+    # Ver README.md.
     environment:
       - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN:-}
     ports:

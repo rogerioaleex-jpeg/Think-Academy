@@ -21,6 +21,8 @@ function LabConsole() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  // URL que já confirmamos responder de verdade (ver useEffect abaixo).
+  const [readyUrl, setReadyUrl] = useState<string | null>(null);
 
   function load() {
     if (!instanceId) return;
@@ -33,6 +35,36 @@ function LabConsole() {
     const t = setInterval(load, 5000); // polling simples — sem infra de readiness dedicada
     return () => clearInterval(t);
   }, [instanceId]);
+
+  /**
+   * accessUrl fica não-nulo assim que o driver retorna, mas em modo
+   * traefik-labels o Let's Encrypt ainda precisa emitir um certificado
+   * NOVO pra esse hostname único (lab-<id>.<domínio>) — validado em
+   * produção: leva ~50s na prática. Sem essa checagem, o iframe carrega
+   * cedo demais e dá erro de TLS, parecendo que "nenhuma máquina abre".
+   * `mode: 'no-cors'` faz o fetch nunca "ver" o corpo da resposta (origens
+   * diferentes), mas isso não importa aqui: só usamos se ele resolve ou
+   * rejeita — um handshake TLS ainda inválido rejeita mesmo em no-cors.
+   */
+  useEffect(() => {
+    const url: string | undefined = instance?.accessUrl;
+    if (!url || url === readyUrl) return;
+    let cancelled = false;
+    const probe = async () => {
+      try {
+        await fetch(url, { mode: 'no-cors', cache: 'no-store' });
+        if (!cancelled) setReadyUrl(url);
+      } catch {
+        // certificado ainda não emitido / host ainda não responde — tenta de novo
+      }
+    };
+    probe();
+    const t = setInterval(probe, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [instance?.accessUrl, readyUrl]);
 
   async function submit(challengeId: string) {
     const answer = answers[challengeId];
@@ -105,7 +137,13 @@ function LabConsole() {
                   (download do sistema). Se a tela ficar preta, aguarde — ela reconecta automaticamente.
                 </p>
               )}
-              <VncConsole accessUrl={instance.accessUrl} />
+              {instance.accessUrl !== readyUrl ? (
+                <p className="text-xs text-muted">
+                  Emitindo certificado HTTPS do console — pode levar até 1 minuto na primeira vez, aguarde…
+                </p>
+              ) : (
+                <VncConsole accessUrl={instance.accessUrl} />
+              )}
             </>
           )}
         </Card>

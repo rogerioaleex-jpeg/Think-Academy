@@ -47,6 +47,11 @@ Ele instala o Docker, confirma o KVM, gera os certificados TLS mútuos, configur
 LAB_ACME_EMAIL=seu-email@exemplo.com
 LAB_ACME_DNS_PROVIDER=cloudflare
 CF_DNS_API_TOKEN=<token com permissão Zone:DNS:Edit, restrito à zona do seu domínio>
+# MESMO valor que você vai configurar em LAB_PUBLIC_DOMAIN na API (Render).
+# O Traefik usa isso pra obter UM certificado wildcard (*.<valor>) uma única
+# vez no boot — validado em produção: emitir certificado por instância (sem
+# isso) levava ~50s por lab e arriscava o limite semanal do Let's Encrypt.
+LAB_PUBLIC_DOMAIN=labs.seudominio.com.br
 ```
 Aponte um registro DNS **wildcard** (`A`, nome `*.labs`, conteúdo o IP público do servidor, proxy **DNS only**) na zona do seu domínio, e então:
 ```bash
