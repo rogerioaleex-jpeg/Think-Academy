@@ -61,8 +61,8 @@ export function GuacamoleConsole({ instanceId }: { instanceId: string }) {
           assim antes. */}
       <p className="mb-2 text-[11px] text-brand">
         Clique dentro da tela abaixo antes de digitar (o teclado só é capturado depois do clique). Para abrir um
-        terminal na área de trabalho: clique com o botão direito no fundo da tela e escolha "Abrir terminal aqui"
-        (ou procure o ícone de terminal na barra de tarefas).
+        terminal na área de trabalho: clique com o botão direito no fundo da tela e escolha &ldquo;Abrir terminal
+        aqui&rdquo; (ou procure o ícone de terminal na barra de tarefas).
       </p>
       <iframe
         src={url}
