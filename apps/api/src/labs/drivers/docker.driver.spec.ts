@@ -80,6 +80,16 @@ describe('DockerLabDriver', () => {
     expect(runCall?.[0]).toContain('--tmpfs /var/run');
   });
 
+  it('BUG corrigido: --cap-drop ALL total quebrava o chown/setuid internos do nginx — precisa devolver CHOWN/SETUID/SETGID', async () => {
+    mockDocker({ dockerOk: true });
+    await driver.provision(baseSpec());
+    const runCall = mockRun.mock.calls.find((c) => String(c[0]).startsWith('docker run -d'));
+    expect(runCall?.[0]).toContain('--cap-drop ALL');
+    expect(runCall?.[0]).toContain('--cap-add CHOWN');
+    expect(runCall?.[0]).toContain('--cap-add SETUID');
+    expect(runCall?.[0]).toContain('--cap-add SETGID');
+  });
+
   it('direct-port: publica a porta e resolve o accessUrl via "docker port" (dev-only, sem garantia de isolamento)', async () => {
     process.env.LAB_VM_ACCESS_MODE = 'direct-port';
     mockDocker({ dockerOk: true });

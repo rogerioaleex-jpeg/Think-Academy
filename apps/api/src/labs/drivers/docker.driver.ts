@@ -83,16 +83,29 @@ export class DockerLabDriver implements ILabDriver {
       `--cpus=${spec.cpuLimit}`,
       `--memory=${spec.memoryLimitMb}m`,
       '--pids-limit=256',
+      // BUG real corrigido aqui (3 camadas, todas validadas em produção —
+      // como accessUrl era sempre null antes do fix na resolução de URL
+      // acima, NUNCA ninguém tinha checado se esses containers respondiam
+      // de verdade; essa cadeia de crashes ficou invisível desde a criação
+      // do driver):
+      // 1) só '/tmp' em tmpfs não bastava — nginx:alpine (base de TODOS os
+      //    labs Docker atuais, inclusive o placeholder inerte original)
+      //    crasha com "mkdir() /var/cache/nginx/client_temp failed
+      //    (Read-only file system)".
+      // 2) com /var/cache/nginx em tmpfs, o entrypoint do nginx tenta
+      //    `chown` esse diretório pro usuário "nginx" (uid 101) — falha
+      //    com "Operation not permitted" porque --cap-drop ALL total
+      //    removia CAP_CHOWN. mode=/uid=/gid= na montagem tmpfs NÃO
+      //    resolve isso (chown ainda é chamado incondicionalmente).
+      // 3) fix real: mantém --cap-drop ALL mas devolve só CHOWN/SETUID/
+      //    SETGID — o nginx também precisa trocar pro usuário "nginx" nos
+      //    workers (setuid/setgid), não só fazer o chown inicial.
       '--cap-drop ALL',
+      '--cap-add CHOWN',
+      '--cap-add SETUID',
+      '--cap-add SETGID',
       '--security-opt no-new-privileges',
       '--read-only',
-      // BUG real corrigido aqui: só '/tmp' em tmpfs não bastava — validado
-      // em produção que o nginx:alpine (base de TODOS os labs Docker atuais,
-      // inclusive o placeholder inerte original) crasha na inicialização
-      // com "mkdir() /var/cache/nginx/client_temp failed (Read-only file
-      // system)". Como accessUrl era sempre null antes do fix acima,
-      // NUNCA ninguém tinha checado se o container respondia de verdade —
-      // esse crash ficou invisível até agora.
       '--tmpfs /tmp',
       '--tmpfs /var/cache/nginx',
       '--tmpfs /var/run',
