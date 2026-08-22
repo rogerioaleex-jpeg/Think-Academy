@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RoleName } from '@tica/database';
 import { LabsService } from './labs.service';
 import { Roles } from '../common/decorators/roles.decorator';
-import { CreateLabDto, AddChallengeDto, AddHintDto } from './dto/lab-admin.dto';
+import { CreateLabDto, UpdateLabDto, AddChallengeDto, AddHintDto } from './dto/lab-admin.dto';
 
 const ADMINS = [RoleName.SUPER_ADMIN, RoleName.ADMIN, RoleName.INSTRUCTOR];
 
@@ -24,6 +24,12 @@ export class LabsAdminController {
   @ApiOperation({ summary: 'Cria um laboratório.' })
   create(@Body() body: CreateLabDto) {
     return this.labs.createLab(body);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Atualiza campos de um laboratório existente (PATCH parcial).' })
+  update(@Param('id') id: string, @Body() body: UpdateLabDto) {
+    return this.labs.updateLab(id, body);
   }
 
   @Post(':id/challenges')

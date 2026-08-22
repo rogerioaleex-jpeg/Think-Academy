@@ -285,6 +285,11 @@ async function main() {
     title: string; slug: string; objective: string; category: LabCategory; xp: number;
     difficulty?: Difficulty; durationMin?: number;
     driver?: LabDriver; osType?: VmOsType; vmVersion?: string; cpuLimit?: string; memoryLimitMb?: number; timeoutMin?: number;
+    /** Override explícito de imagem — necessário para labs cujo desafio exige dados/ferramentas REAIS
+     * dentro do container/VM (ex.: log sintético pra analisar, nmap/Wireshark pra rodar), em vez do
+     * placeholder inerte `nginx:alpine` (DOCKER) ou da imagem padrão do osType (VM). Ver infra/labs/README.md
+     * — imagens custom são construídas uma vez no host dedicado via `docker build`, não vêm de um registry. */
+    dockerImage?: string;
     challenges: { title: string; flag: string; points: number }[];
     hints: string[];
   }> = [
@@ -292,6 +297,11 @@ async function main() {
       title: 'SOC Investigation — Brute Force', slug: 'soc-investigation-brute-force',
       objective: 'Investigar múltiplas falhas de autenticação em dados sintéticos e classificar o incidente.',
       category: LabCategory.SOC, xp: 250,
+      // Antes usava o placeholder nginx:alpine (sem NENHUM dado real pro
+      // aluno analisar — bug real, corrigido aqui). Agora serve o log
+      // sintético de verdade via HTTP (accessUrl da instância). Imagem
+      // construída uma vez no host: ver infra/labs/README.md.
+      dockerImage: 'tica-lab-soc-brute-force:latest',
       challenges: [
         { title: 'Identificar o usuário-alvo', flag: 'jsilva', points: 50 },
         { title: 'Identificar o IP de origem', flag: '203.0.113.47', points: 50 },
@@ -304,6 +314,8 @@ async function main() {
       title: 'Log Analysis — Web Access', slug: 'log-analysis-web-access',
       objective: 'Analisar logs de acesso web sintéticos e identificar tentativa de path traversal.',
       category: LabCategory.NETWORK, xp: 150,
+      // Idem: log de acesso sintético real, servido via HTTP — ver comentário no lab anterior.
+      dockerImage: 'tica-lab-log-analysis-web-access:latest',
       challenges: [
         { title: 'Encontrar o payload suspeito', flag: '../../etc/passwd', points: 75 },
         { title: 'Identificar o status code de sucesso', flag: '200', points: 75 },
@@ -314,6 +326,8 @@ async function main() {
       title: 'KQL Basics — Sentinel Sandbox', slug: 'kql-basics-sentinel',
       objective: 'Escrever consultas KQL sobre uma tabela sintética de sign-ins.',
       category: LabCategory.CLOUD, xp: 100,
+      // Idem: tabela de sign-ins sintética real (CSV), servida via HTTP — ver comentário nos labs anteriores.
+      dockerImage: 'tica-lab-kql-sentinel:latest',
       challenges: [{ title: 'Contar sign-ins com falha', flag: '17', points: 100 }],
       hints: ['Use where ResultType != 0 | count.'],
     },
@@ -353,6 +367,10 @@ async function main() {
       objective: 'Analisar tráfego de rede e identificar indícios de reconhecimento (port scanning) num desktop Linux real, isolado.',
       category: LabCategory.NETWORK, xp: 180, difficulty: Difficulty.MEDIUM, durationMin: 40,
       driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
+      // Desktop Ubuntu comum não tem nmap instalado — sem isso o desafio
+      // pede pra rodar uma ferramenta que não existe na VM. Usa a imagem
+      // com ferramentas de rede reais (ver infra/labs/README.md).
+      dockerImage: 'tica-lab-pentest-desktop:latest',
       challenges: [
         { title: 'Flag TCP que indica o início de uma conexão', flag: 'syn', points: 60 },
         { title: 'Ferramenta de linha de comando mais usada para varredura de portas', flag: 'nmap', points: 60 },
@@ -361,6 +379,54 @@ async function main() {
       hints: [
         'Um handshake TCP completo é SYN → SYN-ACK → ACK.',
         'Esse tipo de scan é chamado de "half-open" porque a conexão nunca é finalizada.',
+      ],
+    },
+    {
+      title: 'Nmap — Varredura de Portas e Serviços', slug: 'nmap-varredura-portas-servicos',
+      objective: 'Rodar varreduras reais com nmap num desktop Linux completo e interpretar os resultados.',
+      category: LabCategory.NETWORK, xp: 160, difficulty: Difficulty.EASY, durationMin: 35,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
+      dockerImage: 'tica-lab-pentest-desktop:latest',
+      challenges: [
+        { title: 'Abra um terminal e rode "nmap -sV 127.0.0.1" — qual porta TCP aparece aberta rodando o serviço de RDP (xrdp)?', flag: '3389', points: 50 },
+        { title: 'Qual parâmetro do nmap faz a varredura de TODAS as 65535 portas, em vez do padrão top-1000?', flag: '-p-', points: 50 },
+        { title: 'Qual opção do nmap ativa a detecção de versão dos serviços encontrados?', flag: '-sV', points: 60 },
+      ],
+      hints: [
+        'A porta do RDP/xrdp é a mesma usada pra você acessar essa própria VM.',
+        'A flag de "todas as portas" usa um hífen seguido de "p" e outro hífen, sem número.',
+      ],
+    },
+    {
+      title: 'Wireshark/Tshark — Captura e Análise de Tráfego', slug: 'wireshark-captura-analise-trafego',
+      objective: 'Usar tshark (Wireshark via linha de comando) pra capturar e filtrar tráfego real num desktop Linux completo, isolado.',
+      category: LabCategory.NETWORK, xp: 180, difficulty: Difficulty.MEDIUM, durationMin: 40,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
+      dockerImage: 'tica-lab-pentest-desktop:latest',
+      challenges: [
+        { title: 'Rode "tshark -D" no terminal da VM — qual é o nome da interface de loopback listada?', flag: 'lo', points: 50 },
+        { title: 'Qual comando de terminal roda a mesma engine de captura do Wireshark, sem interface gráfica?', flag: 'tshark', points: 50 },
+        { title: 'Qual filtro do Wireshark/tshark exibe somente pacotes TCP com a flag SYN ativa?', flag: 'tcp.flags.syn==1', points: 80 },
+      ],
+      hints: [
+        'A interface de loopback é a mesma usada por "ping 127.0.0.1".',
+        'O nome do binário de captura sem GUI é uma contração de "terminal" + "shark".',
+      ],
+    },
+    {
+      title: 'Netstat — Conexões e Portas Ativas', slug: 'netstat-conexoes-portas-ativas',
+      objective: 'Investigar conexões de rede e portas em escuta com netstat/ss num desktop Linux real, isolado.',
+      category: LabCategory.NETWORK, xp: 140, difficulty: Difficulty.EASY, durationMin: 30,
+      driver: LabDriver.VM, osType: VmOsType.UBUNTU_DESKTOP_RDP, cpuLimit: '2', memoryLimitMb: 4096, timeoutMin: 60,
+      dockerImage: 'tica-lab-pentest-desktop:latest',
+      challenges: [
+        { title: 'Rode "netstat -tlnp" no terminal — qual porta TCP aparece em LISTEN associada ao processo xrdp?', flag: '3389', points: 40 },
+        { title: 'Qual comando moderno substitui o netstat na maioria das distros Linux atuais?', flag: 'ss', points: 50 },
+        { title: 'Qual opção do netstat exibe a tabela de roteamento em vez das conexões?', flag: '-r', points: 50 },
+      ],
+      hints: [
+        'A mesma porta que você usa pra acessar essa VM por RDP.',
+        'O comando moderno tem só duas letras.',
       ],
     },
 
@@ -477,12 +543,15 @@ async function main() {
         difficulty: l.difficulty ?? 'MEDIUM', durationMin: l.durationMin ?? 45, xpReward: l.xp, driver: l.driver ?? LabDriver.DOCKER,
         osType: isVm ? l.osType : null,
         vmVersion: isVm ? l.vmVersion : null,
-        // nginx:alpine — placeholder inerte e REAL (existe no Docker Hub);
-        // validado em produção que uma imagem fictícia faz o `docker run`
-        // falhar assim que o Docker está de fato conectado. A validação do
-        // desafio é 100% server-side via hash da flag, não depende do
-        // conteúdo do container.
-        dockerImage: isVm ? null : 'nginx:alpine',
+        // Padrão: nginx:alpine — placeholder inerte e REAL (existe no Docker
+        // Hub); validado em produção que uma imagem fictícia faz o
+        // `docker run` falhar assim que o Docker está de fato conectado.
+        // A validação do desafio é 100% server-side via hash da flag.
+        // `l.dockerImage` sobrescreve esse padrão quando o desafio EXIGE
+        // conteúdo real (log sintético pra analisar, ferramenta pra rodar)
+        // — ver comentário no tipo `labs` acima. Sem override, VM continua
+        // usando a imagem padrão do osType (null aqui, resolvida no driver).
+        dockerImage: l.dockerImage ?? (isVm ? null : 'nginx:alpine'),
         cpuLimit: l.cpuLimit ?? '1', memoryLimitMb: l.memoryLimitMb ?? 1024,
         timeoutMin: l.timeoutMin ?? 60, exposedPorts: isVm ? [] : [80], status: 'PUBLISHED',
         challenges: { create: l.challenges.map((c, i) => ({ title: c.title, points: c.points, flagHash: sha256(c.flag), order: i })) },

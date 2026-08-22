@@ -84,6 +84,17 @@ export class LabsService {
     });
   }
 
+  /** PATCH parcial — só atualiza os campos presentes no body. Sem isso, corrigir
+   * um lab publicado (imagem errada, status, etc.) exigia editar o banco direto. */
+  updateLab(id: string, data: Partial<{
+    title: string; category: any; objective: string; difficulty: any;
+    durationMin: number; xpReward: number; driver: LabDriver; osType: any; vmVersion: string;
+    dockerImage: string; cpuLimit: string; memoryLimitMb: number; timeoutMin: number;
+    exposedPorts: number[]; status: any;
+  }>) {
+    return this.prisma.lab.update({ where: { id }, data });
+  }
+
   list() {
     return this.prisma.lab.findMany({
       where: { status: 'PUBLISHED' },
