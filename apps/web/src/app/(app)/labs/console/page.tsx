@@ -175,7 +175,22 @@ function LabConsole() {
                       Emitindo certificado HTTPS do console — pode levar até 1 minuto na primeira vez, aguarde…
                     </p>
                   ) : (
-                    <VncConsole accessUrl={instance.accessUrl} />
+                    <>
+                      {/* Só pra VM (VNC) — labs Docker reaproveitam o mesmo
+                          VncConsole pra mostrar conteúdo web estático, sem
+                          teclado/terminal envolvido. Instrução de terminal é
+                          específica de SO — nada de "clique direito" numa
+                          VM Windows. */}
+                      {isVm && (
+                        <p className="mb-2 text-[11px] text-brand">
+                          Clique dentro da tela abaixo antes de digitar (o teclado só é capturado depois do clique).{' '}
+                          {instance.osType === 'WINDOWS10'
+                            ? 'Para abrir um terminal: menu Iniciar → digite "cmd" ou "PowerShell".'
+                            : 'Para abrir um terminal: clique com o botão direito no fundo da tela e escolha "Abrir terminal aqui" (ou procure o ícone de terminal na barra de tarefas).'}
+                        </p>
+                      )}
+                      <VncConsole accessUrl={instance.accessUrl} />
+                    </>
                   )}
                 </>
               )}

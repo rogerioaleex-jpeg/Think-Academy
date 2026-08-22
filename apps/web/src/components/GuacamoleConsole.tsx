@@ -54,6 +54,16 @@ export function GuacamoleConsole({ instanceId }: { instanceId: string }) {
 
   return (
     <div>
+      {/* Gotcha comum de console remoto embutido: o teclado só funciona
+          DEPOIS de um clique dentro da tela (o foco do navegador precisa
+          entrar no iframe) — sem esse aviso, "cliquei e digitei mas não
+          fez nada" é o relato mais comum de quem nunca usou um console
+          assim antes. */}
+      <p className="mb-2 text-[11px] text-brand">
+        Clique dentro da tela abaixo antes de digitar (o teclado só é capturado depois do clique). Para abrir um
+        terminal na área de trabalho: clique com o botão direito no fundo da tela e escolha "Abrir terminal aqui"
+        (ou procure o ícone de terminal na barra de tarefas).
+      </p>
       <iframe
         src={url}
         title="Console RDP do laboratório"
