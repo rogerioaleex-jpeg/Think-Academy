@@ -1,0 +1,9 @@
+EventID=4625 Time=2026-08-20T02:14:01Z Account=jsilva SourceIP=203.0.113.47 FailureReason=%%2313 LogonType=3
+EventID=4625 Time=2026-08-20T02:14:03Z Account=jsilva SourceIP=203.0.113.47 FailureReason=%%2313 LogonType=3
+EventID=4625 Time=2026-08-20T02:14:05Z Account=jsilva SourceIP=203.0.113.47 FailureReason=%%2313 LogonType=3
+EventID=4625 Time=2026-08-20T02:14:08Z Account=jsilva SourceIP=203.0.113.47 FailureReason=%%2313 LogonType=3
+EventID=4625 Time=2026-08-20T02:14:11Z Account=jsilva SourceIP=203.0.113.47 FailureReason=%%2313 LogonType=3
+EventID=4625 Time=2026-08-20T02:14:14Z Account=jsilva SourceIP=203.0.113.47 FailureReason=%%2313 LogonType=3
+EventID=4625 Time=2026-08-20T02:14:17Z Account=jsilva SourceIP=203.0.113.47 FailureReason=%%2313 LogonType=3
+EventID=4625 Time=2026-08-20T02:14:20Z Account=jsilva SourceIP=203.0.113.47 FailureReason=%%2313 LogonType=3
+EventID=4624 Time=2026-08-20T02:14:23Z Account=jsilva SourceIP=203.0.113.47 LogonType=3

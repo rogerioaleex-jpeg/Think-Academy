@@ -137,10 +137,29 @@ sudo docker run -d --name tica-golden-win10-build --network tica-labs-isolated \
 # 2) acompanhe (demora — instalação real do Windows, várias reinicializações)
 sudo docker logs -f tica-golden-win10-build
 
-# 3) quando o Windows tiver bootado até a tela de login/desktop pelo menos
-#    uma vez (o próprio dockurr/windows grava /storage/windows.boot nesse
-#    momento — ver markWindowsBooted() em /run/power.sh na imagem), pare
-#    graciosamente (dá tempo do ACPI shutdown deixar o disco consistente):
+# 3) IMPORTANTE — validado na prática que /storage/windows.boot NÃO é
+#    confiável como sinal de "terminou": numa tentativa real (VM Azure,
+#    AMD EPYC, KVM aninhado) o Windows chegou à área de trabalho
+#    normalmente mas o guest travou de fato (nem o relógio da barra de
+#    tarefas avançava, nem reagia a tecla via QEMU monitor) SEM nunca
+#    criar esse arquivo — o processo ficaria esperando pra sempre. Confirme
+#    visualmente antes de prosseguir, com um screendump real da tela (não
+#    precisa VNC/browser — usa o monitor do QEMU direto):
+#      sudo docker exec tica-golden-win10-build python3 -c "
+#        import socket, time
+#        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.settimeout(5)
+#        s.connect('/run/shm/monitor.sock'); s.recv(4096)
+#        s.send(b'screendump /tmp/screen.ppm\n'); time.sleep(2)"
+#      sudo docker cp tica-golden-win10-build:/tmp/screen.ppm /tmp/screen.ppm
+#      sudo apt-get install -y imagemagick && sudo convert /tmp/screen.ppm /tmp/screen.png
+#    Baixe /tmp/screen.png e olhe: desktop carregado? Tire um SEGUNDO
+#    screendump ~1-2min depois e compare — se o relógio da barra de tarefas
+#    não mudou NADA (pixel a pixel idêntico), o guest travou; mande um
+#    'sendkey esc' pelo mesmo socket do monitor antes do 2º screendump como
+#    teste adicional (nenhuma reação = travamento confirmado, aborte e não
+#    use esse disco como imagem dourada). Só depois de confirmar visualmente
+#    que está respondendo, pare graciosamente (dá tempo do ACPI shutdown
+#    deixar o disco consistente):
 sudo docker stop -t 60 tica-golden-win10-build
 
 # 4) exporte o /storage inteiro pra um diretório fora de qualquer volume de
@@ -157,6 +176,35 @@ sudo docker volume rm -f tica-golden-win10-build
 
 Repita o processo (numa nova pasta) se quiser atualizar a imagem dourada —
 ex.: depois de instalar ferramentas que os labs precisem ter pré-instaladas.
+
+## Imagem "pentest desktop" (nmap, Wireshark/tshark, tcpdump, netstat)
+
+Desktop Ubuntu comum (`danielguerra/ubuntu-xrdp`, o mesmo dos demais labs
+`UBUNTU_DESKTOP_RDP`) NÃO tem ferramentas de rede/pentest instaladas —
+validado que labs que pedem pra rodar nmap numa VM assim simplesmente não
+tinham o binário disponível. A imagem `tica-lab-pentest-desktop` estende a
+mesma base com `nmap`, `wireshark`/`tshark`, `tcpdump`, `net-tools` reais,
+construída uma vez no host (Dockerfile em `infra/labs/pentest-desktop/`):
+
+```bash
+docker build -t tica-lab-pentest-desktop:latest infra/labs/pentest-desktop/
+```
+
+Labs que usam essa imagem apontam `dockerImage: 'tica-lab-pentest-desktop:latest'`
+no seed/admin, mantendo `osType: UBUNTU_DESKTOP_RDP` (o driver de VM já dá
+prioridade a `dockerImage` quando presente, mesmo em labs VM — ver
+`vm.driver.ts`). Reconstrua a imagem se precisar adicionar mais ferramentas.
+
+## Labs DOCKER com dados sintéticos reais
+
+Validado em produção: 3 labs de análise (`soc-investigation-brute-force`,
+`log-analysis-web-access`, `kql-basics-sentinel`) usavam o placeholder
+`nginx:alpine` sem NENHUM dado real — o aluno não tinha como encontrar as
+respostas. Cada um agora tem sua própria imagem custom (Dockerfiles em
+`infra/labs/<slug>/`) que serve o log/tabela sintética de verdade via HTTP,
+no `accessUrl` da instância. Ao criar um lab DOCKER novo com desafio de
+"análise de log/dados", sempre baseie a imagem em algo que realmente
+contenha o dado — nunca deixe no `nginx:alpine` puro por padrão.
 
 ## Limpeza de disco
 

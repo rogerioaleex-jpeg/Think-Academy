@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="pt-br">
+<head><meta charset="utf-8"><title>KQL Basics — Sentinel Sandbox</title></head>
+<body style="font-family: sans-serif; max-width: 700px; margin: 40px auto;">
+  <h1>Tabela sintética SigninLogs</h1>
+  <p>Dados exportados de uma tabela de sign-ins: <a href="/signins.csv">/signins.csv</a></p>
+  <p>Em um Sentinel/Log Analytics real, a consulta equivalente seria:</p>
+  <pre>SigninLogs
+| where ResultType != 0
+| count</pre>
+  <p>Aqui: baixe o CSV e conte quantas linhas têm <code>ResultType</code> diferente de <code>0</code> (0 = sucesso).</p>
+</body>
+</html>

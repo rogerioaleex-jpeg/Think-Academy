@@ -1,0 +1,41 @@
+TimeGenerated,UserPrincipalName,IPAddress,ResultType,ResultDescription
+2026-08-20T11:02:00Z,carol@corp.local,198.51.100.12,0,Success
+2026-08-20T09:00:00Z,alice@corp.local,198.51.100.10,0,Success
+2026-08-20T10:33:00Z,bob@corp.local,203.0.113.21,50076,MFA required
+2026-08-20T11:06:00Z,alice@corp.local,203.0.113.12,50053,Account locked
+2026-08-20T12:09:00Z,dave@corp.local,203.0.113.13,50126,Invalid username or password
+2026-08-20T14:15:00Z,bob@corp.local,198.51.100.25,0,Success
+2026-08-20T10:03:00Z,bob@corp.local,203.0.113.11,50126,Invalid username or password
+2026-08-20T10:21:00Z,bob@corp.local,198.51.100.31,0,Success
+2026-08-20T10:11:00Z,alice@corp.local,198.51.100.21,0,Success
+2026-08-20T13:12:00Z,carol@corp.local,203.0.113.14,50126,Invalid username or password
+2026-08-20T18:09:00Z,alice@corp.local,198.51.100.19,0,Success
+2026-08-20T12:03:00Z,bob@corp.local,198.51.100.13,0,Success
+2026-08-20T15:16:00Z,dave@corp.local,198.51.100.26,0,Success
+2026-08-20T18:27:00Z,carol@corp.local,203.0.113.19,50076,MFA required
+2026-08-20T15:06:00Z,alice@corp.local,198.51.100.16,0,Success
+2026-08-20T18:19:00Z,carol@corp.local,198.51.100.29,0,Success
+2026-08-20T17:18:00Z,dave@corp.local,198.51.100.28,0,Success
+2026-08-20T15:48:00Z,carol@corp.local,203.0.113.26,50053,Account locked
+2026-08-20T10:01:00Z,alice@corp.local,198.51.100.11,0,Success
+2026-08-20T17:24:00Z,alice@corp.local,203.0.113.18,50053,Account locked
+2026-08-20T14:15:00Z,carol@corp.local,203.0.113.15,50053,Account locked
+2026-08-20T16:21:00Z,alice@corp.local,203.0.113.17,50076,MFA required
+2026-08-20T11:36:00Z,alice@corp.local,203.0.113.22,50076,MFA required
+2026-08-20T09:20:00Z,alice@corp.local,198.51.100.30,0,Success
+2026-08-20T17:08:00Z,dave@corp.local,198.51.100.18,0,Success
+2026-08-20T11:12:00Z,bob@corp.local,198.51.100.22,0,Success
+2026-08-20T13:14:00Z,alice@corp.local,198.51.100.24,0,Success
+2026-08-20T14:05:00Z,bob@corp.local,198.51.100.15,0,Success
+2026-08-20T16:07:00Z,alice@corp.local,198.51.100.17,0,Success
+2026-08-20T12:39:00Z,bob@corp.local,203.0.113.23,50126,Invalid username or password
+2026-08-20T09:30:00Z,carol@corp.local,203.0.113.20,50076,MFA required
+2026-08-20T13:42:00Z,alice@corp.local,203.0.113.24,50053,Account locked
+2026-08-20T13:04:00Z,bob@corp.local,198.51.100.14,0,Success
+2026-08-20T16:17:00Z,bob@corp.local,198.51.100.27,0,Success
+2026-08-20T12:13:00Z,bob@corp.local,198.51.100.23,0,Success
+2026-08-20T11:22:00Z,dave@corp.local,198.51.100.32,0,Success
+2026-08-20T14:45:00Z,alice@corp.local,203.0.113.25,50126,Invalid username or password
+2026-08-20T09:10:00Z,alice@corp.local,198.51.100.20,0,Success
+2026-08-20T09:00:00Z,carol@corp.local,203.0.113.10,50053,Account locked
+2026-08-20T15:18:00Z,dave@corp.local,203.0.113.16,50126,Invalid username or password
