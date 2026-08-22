@@ -291,7 +291,10 @@ export class VmLabDriver implements ILabDriver {
 
   /** IP do container na rede isolada — é o que o Guacamole usa como `hostname` da conexão RDP. */
   private async containerIp(ref: string, network: string): Promise<string> {
-    const { stdout } = await run(`docker inspect ${ref} --format "{{(index .NetworkSettings.Networks ${shQuote(network)}).IPAddress}}"`);
+    // Aspas simples por FORA (shell) / duplas por DENTRO (Go template — string
+    // literal do template SÓ aceita aspas duplas; com simples ele dá
+    // "malformed character constant", validado em produção).
+    const { stdout } = await run(`docker inspect ${ref} --format '{{(index .NetworkSettings.Networks "${network}").IPAddress}}'`);
     const ip = stdout.trim();
     if (!ip) throw new Error(`Não foi possível obter o IP do container ${ref} na rede ${network}.`);
     return ip;
