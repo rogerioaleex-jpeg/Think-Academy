@@ -2,6 +2,13 @@
 
 const isDev = process.env.NODE_ENV !== 'production';
 const apiOrigin = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3333';
+// Domínio wildcard do "lab plane" (ex.: labs.hackerarena.com.br) — MESMO
+// valor configurado como LAB_PUBLIC_DOMAIN na API. Necessário pro
+// VncConsole/GuacamoleConsole (console de VM embutido via <iframe>, em
+// lab-<id>.<dominio> ou guac.<dominio>): sem isso no CSP, o navegador
+// bloqueia o iframe/fetch com "Este conteúdo está bloqueado" mesmo com o
+// servidor remoto respondendo 200 normalmente — validado em produção.
+const labDomain = process.env.LAB_PUBLIC_DOMAIN;
 
 // Content-Security-Policy do frontend. Permite as fontes do Google (Inter,
 // JetBrains Mono, Material Symbols) e conexões à API. Em dev libera
@@ -18,10 +25,14 @@ const csp = [
   `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
   `font-src 'self' https://fonts.gstatic.com data:`,
   `img-src 'self' data: blob:`,
-  `connect-src 'self' ${apiOrigin}${isDev ? ' ws: wss:' : ''}`,
+  // https://*.<labDomain>: só pro fetch de sondagem de readiness do console
+  // (console/page.tsx) — o WebSocket do próprio Guacamole roda DENTRO do
+  // iframe, sob o CSP do documento carregado ali, não o desta página.
+  `connect-src 'self' ${apiOrigin}${isDev ? ' ws: wss:' : ''}${labDomain ? ` https://*.${labDomain}` : ''}`,
   // Player de vídeo de aula: embed do YouTube/Vimeo (link externo colado no
   // admin) e <video> apontando pra um arquivo direto em qualquer host https.
-  `frame-src 'self' https://www.youtube.com https://player.vimeo.com`,
+  // + console de VM/RDP (*.${labDomain}: lab-<id>.<dominio> e guac.<dominio>).
+  `frame-src 'self' https://www.youtube.com https://player.vimeo.com${labDomain ? ` https://*.${labDomain}` : ''}`,
   `media-src 'self' https:`,
   `upgrade-insecure-requests`,
 ]

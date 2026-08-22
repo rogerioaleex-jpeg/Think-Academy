@@ -88,3 +88,9 @@ services:
       # URL pública da API — INLINADA no build do Next; preencher e redeployar.
       - key: NEXT_PUBLIC_API_URL
         sync: false
+      # MESMO valor do LAB_PUBLIC_DOMAIN da API — usado no CSP (next.config.mjs)
+      # pra liberar o iframe/fetch do console de VM/RDP. Também inlinado no
+      # build; sem isso o navegador bloqueia o console com "Este conteúdo
+      # está bloqueado" mesmo com o backend funcionando normalmente.
+      - key: LAB_PUBLIC_DOMAIN
+        sync: false
