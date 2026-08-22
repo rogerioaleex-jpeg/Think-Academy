@@ -89,8 +89,14 @@ function LabConsole() {
   async function reset() {
     setBusy(true);
     try {
-      await api(`/labs/instances/${instanceId}/reset`, { method: 'POST' });
-      load();
+      // BUG real corrigido aqui: /reset destrói a instância ATUAL e cria
+      // uma NOVA com id diferente (ver LabsService.reset) — só chamar
+      // load() de novo mantinha a página olhando pro id antigo (agora
+      // DESTROYED) pra sempre, sem nunca mostrar o ambiente novo. Precisa
+      // navegar pro novo ?instance=<id>.
+      const fresh = await api<{ id: string }>(`/labs/instances/${instanceId}/reset`, { method: 'POST' });
+      setFeedback({});
+      router.push(`/labs/console?instance=${fresh.id}`);
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
