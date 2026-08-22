@@ -112,6 +112,29 @@ describe('VmLabDriver', () => {
     expect(result.rdpPort).toBe(54321); // mock retorna a mesma porta pra qualquer `docker port`
   });
 
+  it('Windows: sem WINDOWS_ISO_CACHE_PATH, não tenta semear o volume (cairá pra download, que falha na rede isolada)', async () => {
+    delete process.env.WINDOWS_ISO_CACHE_PATH;
+    mockDocker({ dockerOk: true, kvmOk: true });
+    await driver.provision(baseSpec({ osType: 'WINDOWS10', vmVersion: '10' }));
+    expect(mockRun).not.toHaveBeenCalledWith(expect.stringContaining('custom.iso'));
+  });
+
+  it('Windows: com WINDOWS_ISO_CACHE_PATH definido, copia a ISO em cache pro volume ANTES de iniciar o container', async () => {
+    process.env.WINDOWS_ISO_CACHE_PATH = '/opt/tica-labs/iso-cache/win10.iso';
+    mockDocker({ dockerOk: true, kvmOk: true });
+    await driver.provision(baseSpec({ osType: 'WINDOWS10', vmVersion: '10' }));
+
+    const seedCallIdx = mockRun.mock.calls.findIndex((c) => String(c[0]).includes('cp /src/custom.iso /dst/custom.iso'));
+    const runCallIdx = mockRun.mock.calls.findIndex((c) => String(c[0]).startsWith('docker run -d'));
+    expect(seedCallIdx).toBeGreaterThanOrEqual(0);
+    expect(runCallIdx).toBeGreaterThan(seedCallIdx); // a cópia da ISO precisa terminar ANTES do container real subir
+
+    const seedCmd = String(mockRun.mock.calls[seedCallIdx][0]);
+    expect(seedCmd).toContain('--network none'); // não precisa (nem deve) tocar a rede isolada
+    expect(seedCmd).toContain('/opt/tica-labs/iso-cache/win10.iso:/src/custom.iso:ro');
+    expect(mockRun).toHaveBeenCalledWith(expect.stringContaining('docker volume create tica-vm-vol-inst-1'));
+  });
+
   it('sem LAB_VM_ACCESS_MODE definido, usa traefik-labels por padrão (único modo que funciona com a rede isolada)', async () => {
     delete process.env.LAB_VM_ACCESS_MODE;
     process.env.LAB_PUBLIC_DOMAIN = 'labs.example.com';

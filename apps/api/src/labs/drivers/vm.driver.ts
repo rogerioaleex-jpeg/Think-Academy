@@ -140,6 +140,39 @@ export class VmLabDriver implements ILabDriver {
     return this.kvmAvailable;
   }
 
+  /**
+   * Copia a ISO do Windows (já baixada uma vez no host, fora do Docker) para
+   * dentro do volume da instância como `custom.iso` ANTES de iniciar o
+   * container real. Necessário porque `dockurr/windows` baixa a ISO da
+   * Microsoft na primeira inicialização, e a rede isolada obrigatória
+   * (`tica-labs-isolated`, `internal: true`) não tem rota de saída — validado
+   * em produção: sem isso, o boot fica em loop de
+   * "Could not resolve host: vlscppe.microsoft.com" pra sempre, mesmo com
+   * CPU/RAM suficientes. `dockurr/windows` já suporta oficialmente esse fluxo
+   * (detecta um arquivo `custom.iso` em `/storage` e pula o download por
+   * completo — ver `detectCustom()`/`findFile("custom.iso")` em
+   * `/run/install.sh` dentro da própria imagem).
+   *
+   * O container auxiliar roda com `--network none` (nem precisa da rede
+   * isolada) e só lê a ISO em modo read-only do host — não expõe a VM a
+   * nenhuma rede além da isolada de verdade.
+   */
+  private async seedWindowsIso(volumeName: string): Promise<void> {
+    const isoPath = process.env.WINDOWS_ISO_CACHE_PATH;
+    if (!isoPath) {
+      this.logger.warn(
+        'WINDOWS_ISO_CACHE_PATH não configurado — o container vai tentar baixar a ISO da Microsoft, ' +
+          'o que FALHA na rede isolada (sem saída à internet). Baixe a ISO uma vez no host do Docker e ' +
+          'aponte WINDOWS_ISO_CACHE_PATH para o arquivo (ver infra/labs/README.md).',
+      );
+      return;
+    }
+    await run(`docker volume create ${volumeName}`);
+    await run(
+      `docker run --rm --network none -v ${shQuote(`${isoPath}:/src/custom.iso:ro`)} -v ${volumeName}:/dst alpine cp /src/custom.iso /dst/custom.iso`,
+    );
+  }
+
   private async ensureNetwork(network: string): Promise<void> {
     try {
       await run(`docker network inspect ${network}`);
@@ -182,6 +215,9 @@ export class VmLabDriver implements ILabDriver {
       return { externalRef: `sim-${spec.instanceId}`, accessUrl: null, networkId: spec.network };
     }
     await this.ensureNetwork(spec.network);
+    if (osType === 'WINDOWS10') {
+      await this.seedWindowsIso(volumeName);
+    }
 
     // Padrão é traefik-labels: é o único modo que funciona com a rede
     // isolada obrigatória (ver isNetworkInternal acima). direct-port só
