@@ -95,6 +95,11 @@ export class LabsService {
     return this.prisma.lab.update({ where: { id }, data });
   }
 
+  /** Cascade real (ver schema: onDelete: Cascade em LabChallenge/LabHint/LabInstance) — apaga histórico junto. */
+  deleteLab(id: string) {
+    return this.prisma.lab.delete({ where: { id } });
+  }
+
   list() {
     return this.prisma.lab.findMany({
       where: { status: 'PUBLISHED' },

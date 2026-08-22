@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RoleName } from '@tica/database';
 import { LabsService } from './labs.service';
@@ -30,6 +30,15 @@ export class LabsAdminController {
   @ApiOperation({ summary: 'Atualiza campos de um laboratório existente (PATCH parcial).' })
   update(@Param('id') id: string, @Body() body: UpdateLabDto) {
     return this.labs.updateLab(id, body);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Remove um laboratório PERMANENTEMENTE — cascade em desafios/hints E em qualquer instância/submissão já registrada (ver onDelete: Cascade em LabInstance no schema).',
+    description: 'Use com cuidado num lab que já teve alunos reais: o histórico de tentativas some junto. Pra só tirar de circulação sem perder histórico, prefira PATCH status=DRAFT.',
+  })
+  remove(@Param('id') id: string) {
+    return this.labs.deleteLab(id);
   }
 
   @Post(':id/challenges')
