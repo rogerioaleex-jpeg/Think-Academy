@@ -4,18 +4,9 @@ import { promisify } from 'util';
 import { randomBytes } from 'crypto';
 import { ILabDriver, LabProvisionSpec, LabProvisionResult, DestroyMeta } from './lab-driver.interface';
 import { GuacamoleClient } from './guacamole.client';
+import { shQuote } from './shell-utils';
 
 const run = promisify(exec);
-
-/**
- * Escapa uma string para uso segura como argumento de shell (POSIX
- * single-quote escaping). Necessário porque `exec()` roda o comando via
- * `/bin/sh -c "<string>"` — sem isso, valores com backtick/parênteses (como
- * a regra `Host(\`...\`)` do Traefik) quebram o shell. Validado em produção:
- * sem essa proteção, `docker run` falhava com
- * `/bin/sh: Syntax error: "(" unexpected`.
- */
-const shQuote = (v: string) => `'${v.replace(/'/g, `'"'"'`)}'`;
 
 type OsType = 'WINDOWS10' | 'UBUNTU_DESKTOP' | 'UBUNTU_DESKTOP_RDP';
 

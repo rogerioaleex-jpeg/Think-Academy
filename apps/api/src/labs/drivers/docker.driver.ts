@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { ILabDriver, LabProvisionSpec, LabProvisionResult } from './lab-driver.interface';
+import { shQuote } from './shell-utils';
 
 const run = promisify(exec);
 
@@ -55,7 +56,26 @@ export class DockerLabDriver implements ILabDriver {
     }
     await this.ensureNetwork(spec.network);
 
-    const ports = spec.exposedPorts.map((p) => `-p 0:${p}`).join(' ');
+    // BUG real corrigido aqui: este driver sempre retornava `accessUrl:
+    // null`, incondicionalmente — NENHUM lab DOCKER jamais teve uma URL de
+    // acesso de verdade, mesmo com o container rodando. Mesmo problema (e
+    // mesma solução) já resolvidos pro driver de VM: `-p 0:<porta>` não
+    // publica nada numa rede `internal:true` (validado em produção), então
+    // o modo padrão precisa ser `traefik-labels` — mesma env
+    // LAB_VM_ACCESS_MODE do VmLabDriver, é a mesma infraestrutura de rede.
+    const accessMode = process.env.LAB_VM_ACCESS_MODE ?? 'traefik-labels';
+    const primaryPort = spec.exposedPorts[0];
+    const traefikLabels =
+      accessMode === 'traefik-labels' && primaryPort
+        ? [
+            '--label traefik.enable=true',
+            `--label ${shQuote(`traefik.http.routers.lab-${spec.instanceId}.rule=Host(\`lab-${spec.instanceId}.${process.env.LAB_PUBLIC_DOMAIN}\`)`)}`,
+            `--label traefik.http.services.lab-${spec.instanceId}.loadbalancer.server.port=${primaryPort}`,
+          ]
+        : [];
+    const directPorts =
+      accessMode === 'direct-port' ? spec.exposedPorts.map((p) => `-p 0:${p}`) : [];
+
     const cmd = [
       'docker run -d',
       `--name ${containerName}`,
@@ -67,14 +87,35 @@ export class DockerLabDriver implements ILabDriver {
       '--security-opt no-new-privileges',
       '--read-only',
       '--tmpfs /tmp',
-      ports,
+      ...directPorts,
+      ...traefikLabels,
       spec.image,
-    ].join(' ');
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     const { stdout } = await run(cmd);
     const externalRef = stdout.trim();
+
+    let accessUrl: string | null = null;
+    if (accessMode === 'traefik-labels' && primaryPort) {
+      accessUrl = `https://lab-${spec.instanceId}.${process.env.LAB_PUBLIC_DOMAIN}/`;
+    } else if (accessMode === 'direct-port' && primaryPort) {
+      accessUrl = await this.resolveDirectPortUrl(externalRef, primaryPort);
+    }
+
     this.logger.log(`Lab provisionado: ${containerName} (${externalRef.slice(0, 12)})`);
-    return { externalRef, accessUrl: null, networkId: spec.network };
+    return { externalRef, accessUrl, networkId: spec.network };
+  }
+
+  private async resolveDirectPortUrl(ref: string, internalPort: number): Promise<string | null> {
+    try {
+      const { stdout } = await run(`docker port ${ref} ${internalPort}/tcp`);
+      const m = stdout.trim().match(/:(\d+)$/);
+      return m ? `http://${process.env.LAB_VM_HOST ?? 'localhost'}:${m[1]}/` : null;
+    } catch {
+      return null;
+    }
   }
 
   async destroy(externalRef: string): Promise<void> {

@@ -316,8 +316,14 @@ async function main() {
       category: LabCategory.NETWORK, xp: 150,
       // Idem: log de acesso sintético real, servido via HTTP — ver comentário no lab anterior.
       dockerImage: 'tica-lab-log-analysis-web-access:latest',
+      // IMPORTANTE: o flag NUNCA pode ser uma string de payload de ataque
+      // literal (ex.: "../../etc/passwd") — validado em produção que o WAF
+      // na frente da API (Cloudflare, via Render) BLOQUEIA a requisição de
+      // submit inteira com uma página "Blocked" antes mesmo de chegar no
+      // NestJS, tornando o desafio impossível de completar. Peça o NOME do
+      // arquivo/alvo em vez do payload completo.
       challenges: [
-        { title: 'Encontrar o payload suspeito', flag: '../../etc/passwd', points: 75 },
+        { title: 'Qual arquivo sensível o atacante tentou acessar via path traversal?', flag: 'passwd', points: 75 },
         { title: 'Identificar o status code de sucesso', flag: '200', points: 75 },
       ],
       hints: ['Procure por sequências de "../" nas URLs.'],

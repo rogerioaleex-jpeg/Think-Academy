@@ -132,7 +132,15 @@ function LabConsole() {
         {instance.expiresAt && <> · expira em {new Date(instance.expiresAt).toLocaleTimeString('pt-BR')}</>}
       </p>
 
-      {isVm && (
+      {/* BUG real corrigido aqui: essa Card só aparecia pra driver VM — o
+          DockerLabDriver sempre retornou (e agora retorna de verdade, ver
+          docker.driver.ts) um accessUrl válido também, mas o aluno nunca
+          tinha ONDE ver isso na tela. Assume que todo lab Docker atual
+          expõe HTTP (exposedPorts não vem na resposta de getInstance hoje);
+          se um lab Docker sem porta web nenhuma existir no futuro, isso vai
+          mostrar "aguardando acesso remoto" pra sempre — ok por ora, todos
+          os labs Docker atuais servem conteúdo via HTTP. */}
+      {(isVm || instance.lab.driver === 'DOCKER') && (
         <Card className="mt-4">
           {instance.status !== 'RUNNING' && <p className="text-xs text-muted">Provisionando ambiente…</p>}
 
