@@ -141,33 +141,49 @@ export class VmLabDriver implements ILabDriver {
   }
 
   /**
-   * Copia a ISO do Windows (já baixada uma vez no host, fora do Docker) para
-   * dentro do volume da instância como `custom.iso` ANTES de iniciar o
-   * container real. Necessário porque `dockurr/windows` baixa a ISO da
-   * Microsoft na primeira inicialização, e a rede isolada obrigatória
-   * (`tica-labs-isolated`, `internal: true`) não tem rota de saída — validado
-   * em produção: sem isso, o boot fica em loop de
+   * Semeia o volume da instância ANTES de iniciar o container real, pra
+   * evitar que `dockurr/windows` precise baixar algo da internet — a rede
+   * isolada obrigatória (`tica-labs-isolated`, `internal: true`) não tem
+   * rota de saída (validado em produção: sem isso, o boot fica em loop de
    * "Could not resolve host: vlscppe.microsoft.com" pra sempre, mesmo com
-   * CPU/RAM suficientes. `dockurr/windows` já suporta oficialmente esse fluxo
-   * (detecta um arquivo `custom.iso` em `/storage` e pula o download por
-   * completo — ver `detectCustom()`/`findFile("custom.iso")` em
-   * `/run/install.sh` dentro da própria imagem).
+   * CPU/RAM suficientes).
    *
-   * O container auxiliar roda com `--network none` (nem precisa da rede
-   * isolada) e só lê a ISO em modo read-only do host — não expõe a VM a
-   * nenhuma rede além da isolada de verdade.
+   * Dois níveis, do melhor pro mínimo viável:
+   *  1. `WINDOWS_GOLDEN_IMAGE_PATH` (recomendado): diretório com um
+   *     `/storage` de um Windows JÁ INSTALADO e já bootado uma vez (contém
+   *     o disco, o `custom.iso` original e o marcador `windows.boot` que o
+   *     próprio dockurr/windows escreve após o primeiro boot completo — ver
+   *     `markWindowsBooted()` em `/run/power.sh` dentro da imagem). Clonar
+   *     esse diretório inteiro faz a instância nova pular a instalação por
+   *     completo e só dar um boot normal (~1-2 min em vez de ~15+ min) —
+   *     crítico porque cada Reset/expiração de instância recria o volume do
+   *     zero. Ver infra/labs/README.md para o passo a passo de gerar essa
+   *     imagem uma vez.
+   *  2. `WINDOWS_ISO_CACHE_PATH` (mínimo viável, sem imagem dourada): só a
+   *     ISO de instalação em cache — a instância ainda funciona, mas roda o
+   *     instalador completo do Windows a cada nova instância.
+   *
+   * Em ambos os casos, o container auxiliar roda com `--network none` (nem
+   * precisa da rede isolada) e só lê os arquivos em modo read-only do host —
+   * não expõe a VM a nenhuma rede além da isolada de verdade.
    */
   private async seedWindowsIso(volumeName: string): Promise<void> {
+    const goldenPath = process.env.WINDOWS_GOLDEN_IMAGE_PATH;
     const isoPath = process.env.WINDOWS_ISO_CACHE_PATH;
-    if (!isoPath) {
+    if (!goldenPath && !isoPath) {
       this.logger.warn(
-        'WINDOWS_ISO_CACHE_PATH não configurado — o container vai tentar baixar a ISO da Microsoft, ' +
-          'o que FALHA na rede isolada (sem saída à internet). Baixe a ISO uma vez no host do Docker e ' +
-          'aponte WINDOWS_ISO_CACHE_PATH para o arquivo (ver infra/labs/README.md).',
+        'Nem WINDOWS_GOLDEN_IMAGE_PATH nem WINDOWS_ISO_CACHE_PATH configurados — o container vai tentar ' +
+          'baixar a ISO da Microsoft, o que FALHA na rede isolada (sem saída à internet). Ver infra/labs/README.md.',
       );
       return;
     }
     await run(`docker volume create ${volumeName}`);
+    if (goldenPath) {
+      await run(
+        `docker run --rm --network none -v ${shQuote(`${goldenPath}:/src:ro`)} -v ${volumeName}:/dst alpine sh -c "cp -a /src/. /dst/"`,
+      );
+      return;
+    }
     await run(
       `docker run --rm --network none -v ${shQuote(`${isoPath}:/src/custom.iso:ro`)} -v ${volumeName}:/dst alpine cp /src/custom.iso /dst/custom.iso`,
     );

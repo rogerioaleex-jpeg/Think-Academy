@@ -100,6 +100,64 @@ curl -sk -X PUT "https://guac.<LAB_PUBLIC_DOMAIN>/guacamole/api/session/data/pos
 
 Por fim, configure na API (Render): `GUACAMOLE_URL=https://guac.<LAB_PUBLIC_DOMAIN>/guacamole`, `GUACAMOLE_ADMIN_USER=guacadmin`, `GUACAMOLE_ADMIN_PASSWORD=<a senha nova>`. A partir daí, o `VmLabDriver` cria/destrói a conexão RDP de cada instância automaticamente via a API REST do Guacamole (ver `apps/api/src/labs/drivers/guacamole.client.ts`) — **validado em produção**: RDP real via xrdp, sessão visível no navegador através do Guacamole, mesmo certificado wildcard do Traefik reaproveitado (`guac.<LAB_PUBLIC_DOMAIN>` cai dentro do `*.<LAB_PUBLIC_DOMAIN>`).
 
+## Labs WINDOWS10 — ISO em cache e imagem dourada
+
+`dockurr/windows` baixa a ISO do Windows da Microsoft no primeiro boot — a
+rede isolada (`tica-labs-isolated`, `internal:true`) não tem saída à
+internet, então sem um destes dois passos o boot fica em loop eterno de erro
+de DNS (`Could not resolve host: vlscppe.microsoft.com`).
+
+**Nível 1 — ISO em cache (mínimo viável)**: baixe a ISO uma vez aqui no host
+(fora do Docker) e aponte `WINDOWS_ISO_CACHE_PATH` na API pra ela. Funciona,
+mas toda instância nova (inclusive depois de um "Resetar") roda o instalador
+completo do Windows do zero (~15+ min):
+
+```bash
+sudo mkdir -p /opt/tica-labs/iso-cache
+sudo curl -L -o /opt/tica-labs/iso-cache/win10.iso '<url-de-uma-iso-do-windows-10>'
+# API (Render): WINDOWS_ISO_CACHE_PATH=/opt/tica-labs/iso-cache/win10.iso
+```
+
+**Nível 2 — imagem dourada (recomendado)**: instale o Windows *uma vez*,
+deixe ele bootar completamente, pare o container e salve o disco pronto. Toda
+instância nova clona esse disco em vez de instalar — boot cai pra ~1-2 min,
+mesmo depois de Reset/expiração (que sempre recriam o volume do zero):
+
+```bash
+# 1) build isolado, sem afetar labs reais em uso
+sudo docker volume create tica-golden-win10-build
+sudo docker run --rm --network none \
+  -v /opt/tica-labs/iso-cache/win10.iso:/src/custom.iso:ro \
+  -v tica-golden-win10-build:/dst alpine cp /src/custom.iso /dst/custom.iso
+sudo docker run -d --name tica-golden-win10-build --network tica-labs-isolated \
+  --device=/dev/kvm --cap-add NET_ADMIN --cpus=4 --memory=8192m \
+  -v tica-golden-win10-build:/storage \
+  -e VERSION=10 -e RAM_SIZE=8G -e CPU_CORES=4 -e DISK_SIZE=32G dockurr/windows
+
+# 2) acompanhe (demora — instalação real do Windows, várias reinicializações)
+sudo docker logs -f tica-golden-win10-build
+
+# 3) quando o Windows tiver bootado até a tela de login/desktop pelo menos
+#    uma vez (o próprio dockurr/windows grava /storage/windows.boot nesse
+#    momento — ver markWindowsBooted() em /run/power.sh na imagem), pare
+#    graciosamente (dá tempo do ACPI shutdown deixar o disco consistente):
+sudo docker stop -t 60 tica-golden-win10-build
+
+# 4) exporte o /storage inteiro pra um diretório fora de qualquer volume de
+#    instância — é ele que WINDOWS_GOLDEN_IMAGE_PATH vai apontar
+sudo mkdir -p /opt/tica-labs/golden-win10
+sudo docker run --rm -v tica-golden-win10-build:/src:ro \
+  -v /opt/tica-labs/golden-win10:/dst alpine cp -a /src/. /dst/
+sudo docker rm -f tica-golden-win10-build
+sudo docker volume rm -f tica-golden-win10-build
+
+# API (Render): WINDOWS_GOLDEN_IMAGE_PATH=/opt/tica-labs/golden-win10
+# (tem prioridade sobre WINDOWS_ISO_CACHE_PATH — pode manter os dois)
+```
+
+Repita o processo (numa nova pasta) se quiser atualizar a imagem dourada —
+ex.: depois de instalar ferramentas que os labs precisem ter pré-instaladas.
+
 ## Limpeza de disco
 
 Discos de VM (`.qcow2`) são grandes. O `VmLabDriver.destroy()` já remove o volume nomeado da instância junto com o container, e o job `cleanupExpired()` (cron a cada minuto, `apps/api/src/jobs/jobs.service.ts`) chama esse `destroy()` para instâncias expiradas — mas vale rodar periodicamente `docker system prune --volumes` neste host como rede de segurança contra volumes órfãos.

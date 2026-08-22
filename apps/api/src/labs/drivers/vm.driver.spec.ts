@@ -112,14 +112,16 @@ describe('VmLabDriver', () => {
     expect(result.rdpPort).toBe(54321); // mock retorna a mesma porta pra qualquer `docker port`
   });
 
-  it('Windows: sem WINDOWS_ISO_CACHE_PATH, não tenta semear o volume (cairá pra download, que falha na rede isolada)', async () => {
+  it('Windows: sem WINDOWS_GOLDEN_IMAGE_PATH nem WINDOWS_ISO_CACHE_PATH, não tenta semear o volume (cairá pra download, que falha na rede isolada)', async () => {
+    delete process.env.WINDOWS_GOLDEN_IMAGE_PATH;
     delete process.env.WINDOWS_ISO_CACHE_PATH;
     mockDocker({ dockerOk: true, kvmOk: true });
     await driver.provision(baseSpec({ osType: 'WINDOWS10', vmVersion: '10' }));
     expect(mockRun).not.toHaveBeenCalledWith(expect.stringContaining('custom.iso'));
   });
 
-  it('Windows: com WINDOWS_ISO_CACHE_PATH definido, copia a ISO em cache pro volume ANTES de iniciar o container', async () => {
+  it('Windows: com WINDOWS_ISO_CACHE_PATH definido (sem golden), copia a ISO em cache pro volume ANTES de iniciar o container', async () => {
+    delete process.env.WINDOWS_GOLDEN_IMAGE_PATH;
     process.env.WINDOWS_ISO_CACHE_PATH = '/opt/tica-labs/iso-cache/win10.iso';
     mockDocker({ dockerOk: true, kvmOk: true });
     await driver.provision(baseSpec({ osType: 'WINDOWS10', vmVersion: '10' }));
@@ -133,6 +135,24 @@ describe('VmLabDriver', () => {
     expect(seedCmd).toContain('--network none'); // não precisa (nem deve) tocar a rede isolada
     expect(seedCmd).toContain('/opt/tica-labs/iso-cache/win10.iso:/src/custom.iso:ro');
     expect(mockRun).toHaveBeenCalledWith(expect.stringContaining('docker volume create tica-vm-vol-inst-1'));
+  });
+
+  it('Windows: com WINDOWS_GOLDEN_IMAGE_PATH definido, clona o storage já instalado (pula download E instalação)', async () => {
+    process.env.WINDOWS_GOLDEN_IMAGE_PATH = '/opt/tica-labs/golden-win10';
+    process.env.WINDOWS_ISO_CACHE_PATH = '/opt/tica-labs/iso-cache/win10.iso'; // golden tem prioridade
+    mockDocker({ dockerOk: true, kvmOk: true });
+    await driver.provision(baseSpec({ osType: 'WINDOWS10', vmVersion: '10' }));
+
+    const seedCallIdx = mockRun.mock.calls.findIndex((c) => String(c[0]).includes('cp -a /src/. /dst/'));
+    const runCallIdx = mockRun.mock.calls.findIndex((c) => String(c[0]).startsWith('docker run -d'));
+    expect(seedCallIdx).toBeGreaterThanOrEqual(0);
+    expect(runCallIdx).toBeGreaterThan(seedCallIdx);
+
+    const seedCmd = String(mockRun.mock.calls[seedCallIdx][0]);
+    expect(seedCmd).toContain('--network none');
+    expect(seedCmd).toContain('/opt/tica-labs/golden-win10:/src:ro');
+    // Modo golden não deve tocar o caminho da ISO solta.
+    expect(mockRun).not.toHaveBeenCalledWith(expect.stringContaining('cp /src/custom.iso /dst/custom.iso'));
   });
 
   it('sem LAB_VM_ACCESS_MODE definido, usa traefik-labels por padrão (único modo que funciona com a rede isolada)', async () => {
