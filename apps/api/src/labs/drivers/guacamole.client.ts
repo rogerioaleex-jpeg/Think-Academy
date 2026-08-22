@@ -67,6 +67,17 @@ export class GuacamoleClient {
           password: opts.password,
           'ignore-cert': 'true',
           security: 'any',
+          // BUG real corrigido aqui: sem isso, guacd loga "Resize method:
+          // none" — a sessão RDP nunca renegocia resolução pra bater com o
+          // tamanho real da tela do navegador. Validado em produção: clique
+          // e teclado pareciam simplesmente "não fazer nada" (na prática,
+          // o clique acontecia, só que nas coordenadas ERRADAS — o mapeamento
+          // do canvas do navegador pro desktop remoto ficava dessincronizado
+          // sempre que os dois tamanhos não coincidiam por acaso).
+          // "display-update" deixa o guacd redimensionar a sessão xrdp
+          // dinamicamente pro tamanho que o cliente Guacamole reporta ao
+          // conectar, eliminando esse descompasso.
+          'resize-method': 'display-update',
         },
         attributes: {},
       }),

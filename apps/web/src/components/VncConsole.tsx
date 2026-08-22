@@ -18,7 +18,7 @@ export function VncConsole({ accessUrl }: { accessUrl: string | null }) {
       src={accessUrl}
       title="Console remoto do laboratório"
       className="h-[560px] w-full rounded-lg border border-border bg-black"
-      allow="clipboard-read; clipboard-write; fullscreen"
+      allow="clipboard-read; clipboard-write; fullscreen; pointer-lock"
     />
   );
 }

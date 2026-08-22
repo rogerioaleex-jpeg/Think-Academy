@@ -68,7 +68,7 @@ export function GuacamoleConsole({ instanceId }: { instanceId: string }) {
         src={url}
         title="Console RDP do laboratório"
         className="h-[560px] w-full rounded-lg border border-border bg-black"
-        allow="clipboard-read; clipboard-write; fullscreen"
+        allow="clipboard-read; clipboard-write; fullscreen; pointer-lock"
       />
       <button onClick={fetchUrl} className="mt-2 rounded-lg bg-surface2 px-3 py-1.5 text-xs text-muted">
         Reconectar
