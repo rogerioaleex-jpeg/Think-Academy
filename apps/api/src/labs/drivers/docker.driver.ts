@@ -86,7 +86,16 @@ export class DockerLabDriver implements ILabDriver {
       '--cap-drop ALL',
       '--security-opt no-new-privileges',
       '--read-only',
+      // BUG real corrigido aqui: só '/tmp' em tmpfs não bastava — validado
+      // em produção que o nginx:alpine (base de TODOS os labs Docker atuais,
+      // inclusive o placeholder inerte original) crasha na inicialização
+      // com "mkdir() /var/cache/nginx/client_temp failed (Read-only file
+      // system)". Como accessUrl era sempre null antes do fix acima,
+      // NUNCA ninguém tinha checado se o container respondia de verdade —
+      // esse crash ficou invisível até agora.
       '--tmpfs /tmp',
+      '--tmpfs /var/cache/nginx',
+      '--tmpfs /var/run',
       ...directPorts,
       ...traefikLabels,
       spec.image,

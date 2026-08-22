@@ -72,6 +72,14 @@ describe('DockerLabDriver', () => {
     expect(runCall?.[0]).not.toContain('-p 0:80'); // internal:true não publica porta — não deve nem tentar
   });
 
+  it('BUG corrigido: --read-only sozinho com só /tmp em tmpfs derrubava o nginx:alpine — precisa de /var/cache/nginx e /var/run também', async () => {
+    mockDocker({ dockerOk: true });
+    await driver.provision(baseSpec());
+    const runCall = mockRun.mock.calls.find((c) => String(c[0]).startsWith('docker run -d'));
+    expect(runCall?.[0]).toContain('--tmpfs /var/cache/nginx');
+    expect(runCall?.[0]).toContain('--tmpfs /var/run');
+  });
+
   it('direct-port: publica a porta e resolve o accessUrl via "docker port" (dev-only, sem garantia de isolamento)', async () => {
     process.env.LAB_VM_ACCESS_MODE = 'direct-port';
     mockDocker({ dockerOk: true });
