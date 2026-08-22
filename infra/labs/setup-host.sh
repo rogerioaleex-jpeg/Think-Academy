@@ -148,4 +148,12 @@ echo
 echo " IMPORTANTE — restrinja a porta 2376 por firewall a só quem precisa acessá-la"
 echo " (idealmente o IP de saída estático do Render, se você habilitar esse add-on;"
 echo " nunca deixe 2376 aberta para a internet toda). Ex.: ufw allow from <ip-do-render> to any port 2376"
+echo
+echo " Labs WINDOWS10 (dockurr/windows) NÃO funcionam sem este passo manual:"
+echo " a rede isolada não tem saída à internet, então a ISO do Windows precisa"
+echo " ser baixada UMA VEZ aqui no host (fora do Docker) e apontada via"
+echo " WINDOWS_ISO_CACHE_PATH na API — sem isso o boot fica em loop de erro de DNS."
+echo "   sudo mkdir -p /opt/tica-labs/iso-cache"
+echo "   sudo curl -L -o /opt/tica-labs/iso-cache/win10.iso '<url-de-uma-iso-do-windows-10>'"
+echo "   # depois configure na API: WINDOWS_ISO_CACHE_PATH=/opt/tica-labs/iso-cache/win10.iso"
 echo "============================================================"
