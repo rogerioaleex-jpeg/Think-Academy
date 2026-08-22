@@ -22,6 +22,10 @@ function LabConsole() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+  // Feedback IMEDIATO de cada tentativa (certo/errado + pontos) — antes o
+  // retorno de /submit era descartado e nada aparecia na tela em nenhum dos
+  // dois casos; só um recarregamento silencioso via load(). Corrigido aqui.
+  const [feedback, setFeedback] = useState<Record<string, { correct: boolean; points: number }>>({});
   // URL que já confirmamos responder de verdade (ver useEffect abaixo).
   const [readyUrl, setReadyUrl] = useState<string | null>(null);
 
@@ -71,8 +75,12 @@ function LabConsole() {
     const answer = answers[challengeId];
     if (!answer) return;
     try {
-      await api(`/labs/instances/${instanceId}/submit`, { method: 'POST', body: JSON.stringify({ challengeId, answer }) });
-      load();
+      const result = await api<{ correct: boolean; points: number }>(`/labs/instances/${instanceId}/submit`, {
+        method: 'POST',
+        body: JSON.stringify({ challengeId, answer }),
+      });
+      setFeedback((f) => ({ ...f, [challengeId]: result }));
+      if (result.correct) load(); // só precisa recarregar pra mover o desafio pra "resolvido"
     } catch (e) {
       setMsg((e as Error).message);
     }
@@ -164,18 +172,33 @@ function LabConsole() {
 
       <Card className="mt-4">
         <h2 className="mb-2 text-sm font-bold text-ink">Desafios</h2>
-        {instance.lab.challenges.map((c: any) => (
-          <div key={c.id} className="mb-2 flex gap-2">
-            <input
-              disabled={solved.has(c.id)}
-              placeholder={solved.has(c.id) ? 'resolvido ✔' : c.title}
-              value={answers[c.id] ?? ''}
-              onChange={(e) => setAnswers({ ...answers, [c.id]: e.target.value })}
-              className="flex-1 rounded-lg border border-border bg-surface2 px-3 py-2 text-xs text-ink"
-            />
-            <Button onClick={() => submit(c.id)} disabled={solved.has(c.id)}>Enviar</Button>
-          </div>
-        ))}
+        {instance.lab.challenges.map((c: any) => {
+          const fb = feedback[c.id];
+          return (
+            <div key={c.id} className="mb-2">
+              <div className="flex gap-2">
+                <input
+                  disabled={solved.has(c.id)}
+                  placeholder={solved.has(c.id) ? 'resolvido ✔' : c.title}
+                  value={answers[c.id] ?? ''}
+                  onChange={(e) => setAnswers({ ...answers, [c.id]: e.target.value })}
+                  className="flex-1 rounded-lg border border-border bg-surface2 px-3 py-2 text-xs text-ink"
+                />
+                <Button onClick={() => submit(c.id)} disabled={solved.has(c.id)}>Enviar</Button>
+              </div>
+              {/* Feedback imediato da última tentativa — sem isso, uma resposta
+                  errada não dava NENHUM sinal de que foi recebida/rejeitada. */}
+              {fb && !solved.has(c.id) && (
+                <p className={`mt-1 text-xs ${fb.correct ? 'text-brand' : 'text-danger'}`}>
+                  {fb.correct ? `✔ Correto! +${fb.points} XP` : '✘ Resposta incorreta — tente novamente.'}
+                </p>
+              )}
+              {fb && solved.has(c.id) && (
+                <p className="mt-1 text-xs text-brand">✔ Correto! +{fb.points} XP</p>
+              )}
+            </div>
+          );
+        })}
         {instance.lab.challenges.length === 0 && <p className="text-xs text-muted">Nenhum desafio cadastrado.</p>}
       </Card>
 
